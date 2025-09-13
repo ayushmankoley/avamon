@@ -1,0 +1,47 @@
+{
+  "name": "Celestial Dragon",
+  "description": "A legendary mythical creature that rules the skies. This powerful Avamon has unmatched strength and mystical abilities.",
+  "image": "https://your-bucket.s3.amazonaws.com/avamon-cards/celestial-dragon.png",
+  "animation_url": "https://your-bucket.s3.amazonaws.com/avamon-cards/celestial-dragon.mp4",
+  "external_url": "https://avamon.game/card/1",
+  "attributes": [
+    {
+      "trait_type": "Rarity",
+      "value": "Mythic"
+    },
+    {
+      "trait_type": "Attack",
+      "value": 300,
+      "max_value": 500
+    },
+    {
+      "trait_type": "Defense",
+      "value": 250,
+      "max_value": 500
+    },
+    {
+      "trait_type": "Agility",
+      "value": 150,
+      "max_value": 500
+    },
+    {
+      "trait_type": "HP",
+      "value": 3000,
+      "max_value": 5000
+    },
+    {
+      "trait_type": "Element",
+      "value": "Light"
+    },
+    {
+      "trait_type": "Evolution Stage",
+      "value": "Ultimate"
+    }
+  ],
+  "properties": {
+    "card_type": "Avamon",
+    "template_id": 5,
+    "generation": 1,
+    "created_at": "2024-01-15T10:00:00Z"
+  }
+}

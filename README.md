@@ -66,6 +66,71 @@ Run smart contract test with `yarn hardhat:test`
 - Edit your frontend homepage at `packages/nextjs/app/page.tsx`. For guidance on [routing](https://nextjs.org/docs/app/building-your-application/routing/defining-routes) and configuring [pages/layouts](https://nextjs.org/docs/app/building-your-application/routing/pages-and-layouts) checkout the Next.js documentation.
 - Edit your deployment scripts in `packages/hardhat/deploy`
 
+## 🎮 Avamon TCG Setup
+
+This project has been customized for **Avamon TCG** - a blockchain-based trading card game!
+
+### Quick Deploy & Setup
+
+1. **Deploy contracts to Fuji testnet (in order):**
+```bash
+cd packages/hardhat
+
+# Deploy token contracts first
+yarn deploy --network avalancheFuji --tags AvamonToken
+yarn deploy --network avalancheFuji --tags AvamonCards
+yarn deploy --network avalancheFuji --tags AvamonPacks
+
+# Deploy core logic
+yarn deploy --network avalancheFuji --tags AvamonCore
+
+# Deploy admin functions
+yarn deploy --network avalancheFuji --tags AvamonAdmin
+```
+
+2. **Update environment variables:**
+```bash
+# Update .env with deployed addresses
+AVAMON_TOKEN_ADDRESS=0x...
+AVAMON_CARDS_ADDRESS=0x...
+AVAMON_PACKS_ADDRESS=0x...
+AVAMON_CORE_ADDRESS=0x...
+AVAMON_ADMIN_ADDRESS=0x...
+```
+
+3. **Set up game data:**
+```bash
+# Run setup script (uses admin contract for configuration)
+yarn setup
+```
+
+4. **Start the frontend:**
+```bash
+cd packages/nextjs
+yarn start
+```
+
+### What Gets Set Up
+
+The setup script uses the **AvamonAdmin** contract to create:
+- ✅ **35 Card Templates** (20 Common, 10 Rare, 5 Mythic)
+- ✅ **3 Pack Types** with different rarity chances
+- ✅ **6 Adventures** with varying difficulties and rewards
+- ✅ **5 Quests** (3 daily, 2 weekly) with automatic progress tracking
+- ✅ **100,000 $AM tokens** transferred to core contract for rewards
+
+### Deployment Details
+
+See `packages/hardhat/DEPLOYMENT.md` for detailed deployment instructions and troubleshooting.
+
+### Game Features
+
+- 🎯 **Quest System**: Daily and weekly quests with on-chain progress tracking
+- ⚔️ **Adventures**: PvE missions with VRF-powered random rewards
+- 📦 **Pack Opening**: Animated card reveals with rarity-based effects
+- 🃏 **Card Management**: Deck building with owned card validation
+- ⚡ **Energy System**: Daily energy reset with purchase options
+- 👑 **Admin Controls**: Emergency functions and game management
 
 ## Documentation
 

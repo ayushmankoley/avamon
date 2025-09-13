@@ -1,0 +1,254 @@
+import { useAccount } from "wagmi";
+import { useScaffoldWriteContract } from "./useScaffoldWriteContract";
+import { useScaffoldEventHistory } from "./useScaffoldEventHistory";
+import { useScaffoldContract } from "./useScaffoldContract";
+import { useState, useEffect, useMemo, useCallback } from "react";
+
+export interface PackOpeningResult {
+  packId: bigint;
+  avamonIds: readonly bigint[];
+  isCompleted: boolean;
+}
+
+export interface PackOpeningState {
+  isOpening: boolean;
+  currentPackId: bigint | null;
+  openingResult: PackOpeningResult | null;
+  timeRemaining: number;
+  error: string | null;
+}
+
+export function usePackOpening() {
+  const { address } = useAccount();
+  const { writeContractAsync } = useScaffoldWriteContract("AvamonPackOpener");
+
+  const [openingState, setOpeningState] = useState<PackOpeningState>({
+    isOpening: false,
+    currentPackId: null,
+    openingResult: null,
+    timeRemaining: 0,
+    error: null,
+  });
+
+  // Listen for pack opening events
+  const { data: packOpenedEvents } = useScaffoldEventHistory({
+    contractName: "AvamonPackOpener",
+    eventName: "PackOpened",
+    fromBlock: BigInt(-1000),
+    watch: true,
+  });
+
+  // Listen for VRF fulfillment events (if available)
+  const { data: vrfEvents } = useScaffoldEventHistory({
+    contractName: "AvamonCore",
+    eventName: "AdventureCompleted", // This might need to be adjusted based on VRF events
+    fromBlock: BigInt(-1000),
+    watch: true,
+  });
+
+  // Memoize events to prevent infinite re-renders
+  const memoizedPackEvents = useMemo(() => packOpenedEvents, [packOpenedEvents?.length]);
+
+  // Update opening state when events occur
+  useEffect(() => {
+    if (memoizedPackEvents && memoizedPackEvents.length > 0) {
+      const latestEvent = memoizedPackEvents[memoizedPackEvents.length - 1];
+      if (latestEvent.args?.user?.toLowerCase() === address?.toLowerCase()) {
+        const cardIds = latestEvent.args?.cardIds || [];
+
+        setOpeningState(prev => ({
+          ...prev,
+          isOpening: false,
+          openingResult: {
+            packId: latestEvent.args?.packId || 0n,
+            avamonIds: cardIds,
+            isCompleted: true,
+          },
+          timeRemaining: 0,
+        }));
+      }
+    }
+  }, [memoizedPackEvents, address]);
+
+  // Countdown timer for opening animation
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (openingState.isOpening && openingState.timeRemaining > 0) {
+      interval = setInterval(() => {
+        setOpeningState(prev => ({
+          ...prev,
+          timeRemaining: Math.max(0, prev.timeRemaining - 1),
+        }));
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [openingState.isOpening, openingState.timeRemaining]);
+
+  const openPack = async (packId: bigint) => {
+    if (!address) {
+      setOpeningState(prev => ({ ...prev, error: "No wallet connected" }));
+      return;
+    }
+
+    try {
+      setOpeningState({
+        isOpening: true,
+        currentPackId: packId,
+        openingResult: null,
+        timeRemaining: 10, // 10 seconds for VRF + animation
+        error: null,
+      });
+
+      // Call the emergency pack opening function (bypasses VRF issues)
+      // Note: This requires admin permissions. For testing, use emergencyMintPacks first
+      await writeContractAsync({
+        functionName: "emergencyOpenPack",
+        args: [packId],
+      });
+
+      // The result will be handled by the event listener above
+
+    } catch (error) {
+      console.error("Error opening pack:", error);
+      setOpeningState(prev => ({
+        ...prev,
+        isOpening: false,
+        error: error instanceof Error ? error.message : "Failed to open pack",
+      }));
+    }
+  };
+
+  const resetOpeningState = () => {
+    setOpeningState({
+      isOpening: false,
+      currentPackId: null,
+      openingResult: null,
+      timeRemaining: 0,
+      error: null,
+    });
+  };
+
+  return {
+    openingState,
+    openPack,
+    resetOpeningState,
+  };
+}
+
+// Hook for getting card details from token IDs using Scaffold hooks
+export function useCardDetails(tokenIds: readonly bigint[]) {
+  const [cardDetails, setCardDetails] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Get AvamonCards contract for reading card data
+  const { data: avamonCardsContract } = useScaffoldContract({
+    contractName: "AvamonCards",
+  });
+
+  // Get AvamonCore contract for reading template data
+  const { data: avamonCoreContract } = useScaffoldContract({
+    contractName: "AvamonCore",
+  });
+
+  // Create a stable string representation of tokenIds for dependency comparison
+  const tokenIdsString = useMemo(() => {
+    return tokenIds.map(id => id.toString()).join(',');
+  }, [tokenIds]);
+
+  // Memoize the fetchCardDetails function to prevent infinite re-renders
+  const fetchCardDetails = useCallback(async () => {
+    if (tokenIds.length === 0) {
+      setCardDetails([]);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!avamonCardsContract || !avamonCoreContract) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const details = [];
+
+      // Fetch real card data from blockchain for each token ID
+      for (const tokenId of tokenIds) {
+        try {
+          // Get real card stats from the contract
+          const cardStats = await avamonCardsContract.read.cardStats([tokenId]);
+          
+          // Get template information from AvamonCore
+          const templateId = cardStats[0]; // templateId from cardStats
+          const templateData = await avamonCoreContract.read.getCardTemplate([templateId]);
+          
+          const cardDetail = {
+            tokenId,
+            templateId: templateId,
+            name: templateData[1] || `Avamon #${tokenId}`, // Use template name if available
+            rarity: Number(cardStats[5]), // rarity from cardStats
+            attack: Number(cardStats[1]), // attack from cardStats
+            defense: Number(cardStats[2]), // defense from cardStats
+            agility: Number(cardStats[3]), // agility from cardStats
+            hp: Number(cardStats[4]), // hp from cardStats
+          };
+
+          details.push(cardDetail);
+        } catch (cardError) {
+          console.error(`Error fetching data for card ${tokenId}:`, cardError);
+          
+          // Fallback for this specific card if data fetch fails
+          const fallbackDetail = {
+            tokenId,
+            templateId: 1n,
+            name: `Avamon #${tokenId}`,
+            rarity: 0,
+            attack: 50,
+            defense: 50,
+            agility: 50,
+            hp: 100,
+          };
+          details.push(fallbackDetail);
+        }
+      }
+
+      setCardDetails(details);
+    } catch (err) {
+      console.error("Error fetching card details:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch card details");
+
+      // Fallback to basic data for all cards
+      const fallbackDetails = tokenIds.map((tokenId) => ({
+        tokenId,
+        templateId: 1n,
+        name: `Avamon #${tokenId}`,
+        rarity: 0,
+        attack: 50,
+        defense: 50,
+        agility: 50,
+        hp: 100,
+      }));
+      setCardDetails(fallbackDetails);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [tokenIdsString]); // Remove contract dependencies to prevent infinite re-renders
+
+  // Get card details when tokenIds change
+  useEffect(() => {
+    fetchCardDetails();
+  }, [fetchCardDetails]);
+
+  return {
+    cardDetails,
+    isLoading,
+    error,
+  };
+}

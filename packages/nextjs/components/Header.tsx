@@ -21,6 +21,26 @@ export const menuLinks: HeaderMenuLink[] = [
     href: "/",
   },
   {
+    label: "Cards & Decks",
+    href: "/cards",
+  },
+  {
+    label: "Quests",
+    href: "/quests",
+  },
+  {
+    label: "Adventures",
+    href: "/adventures",
+  },
+  {
+    label: "Packs",
+    href: "/packs",
+  },
+  {
+    label: "Admin",
+    href: "/admin",
+  },
+  {
     label: "Debug Contracts",
     href: "/debug",
     icon: <BugAntIcon className="h-4 w-4" />,

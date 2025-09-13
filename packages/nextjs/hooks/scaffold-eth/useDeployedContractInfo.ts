@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useIsMounted } from "usehooks-ts";
 import { usePublicClient } from "wagmi";
 import { useSelectedNetwork } from "~~/hooks/scaffold-eth";
@@ -46,21 +46,29 @@ export function useDeployedContractInfo<TContractName extends ContractName>(
   }, [configOrName]);
   const { contractName, chainId } = finalConfig;
   const selectedNetwork = useSelectedNetwork(chainId);
-  const deployedContract = contracts?.[selectedNetwork.id]?.[contractName as ContractName] as Contract<TContractName>;
+  
+  // Memoize the deployed contract to prevent infinite re-renders
+  const deployedContract = useMemo(() => {
+    return contracts?.[selectedNetwork.id]?.[contractName as ContractName] as Contract<TContractName>;
+  }, [selectedNetwork.id, contractName]);
+  
   const [status, setStatus] = useState<ContractCodeStatus>(ContractCodeStatus.LOADING);
   const publicClient = usePublicClient({ chainId: selectedNetwork.id });
+  
+  // Memoize publicClient to prevent infinite re-renders
+  const memoizedPublicClient = useMemo(() => publicClient, [selectedNetwork.id]);
 
   useEffect(() => {
     const checkContractDeployment = async () => {
       try {
-        if (!isMounted() || !publicClient) return;
+        if (!isMounted() || !memoizedPublicClient) return;
 
         if (!deployedContract) {
           setStatus(ContractCodeStatus.NOT_FOUND);
           return;
         }
 
-        const code = await publicClient.getBytecode({
+        const code = await memoizedPublicClient.getBytecode({
           address: deployedContract.address,
         });
 
@@ -77,7 +85,7 @@ export function useDeployedContractInfo<TContractName extends ContractName>(
     };
 
     checkContractDeployment();
-  }, [isMounted, contractName, deployedContract, publicClient]);
+  }, [isMounted, contractName, deployedContract, memoizedPublicClient]);
 
   return {
     data: status === ContractCodeStatus.DEPLOYED ? deployedContract : undefined,
