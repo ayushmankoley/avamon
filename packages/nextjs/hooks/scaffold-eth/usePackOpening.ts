@@ -38,13 +38,7 @@ export function usePackOpening() {
     watch: true,
   });
 
-  // Listen for VRF fulfillment events (if available)
-  const { data: vrfEvents } = useScaffoldEventHistory({
-    contractName: "AvamonCore",
-    eventName: "AdventureCompleted", // This might need to be adjusted based on VRF events
-    fromBlock: BigInt(-1000),
-    watch: true,
-  });
+  // No VRF events needed for emergency pack opening
 
   // Memoize events to prevent infinite re-renders
   const memoizedPackEvents = useMemo(() => {
@@ -122,18 +116,20 @@ export function usePackOpening() {
         isOpening: true,
         currentPackId: packId,
         openingResult: null,
-        timeRemaining: 30, // 30 seconds for VRF request + fulfillment
+        timeRemaining: 5, // 5 seconds for emergency transaction
         error: null,
       });
 
       console.log(`🎯 Opening pack ${packId}...`);
 
+      // Use emergency pack opening function instead of VRF
+      // This uses client-side pseudo-randomness instead of Chainlink VRF
       await writeContractAsync({
-        functionName: "openPack",
+        functionName: "emergencyOpenPack",
         args: [packId],
       });
 
-      console.log("✅ Pack opening transaction sent");
+      console.log("✅ Emergency pack opening transaction sent");
 
     } catch (error) {
       console.error("❌ Error opening pack:", error);

@@ -113,10 +113,10 @@ const Packs = () => {
     setOpeningComplete(false);
 
     try {
-      // Use the pack opening hook
+      // Use the pack opening hook (emergency function for faster randomness)
       await openPack(BigInt(pack.id));
 
-      console.log("✅ Pack opening transaction sent successfully");
+      console.log("✅ Emergency pack opening transaction sent successfully");
     } catch (error) {
       console.error("Error opening pack:", error);
       alert("Failed to open pack");
@@ -350,9 +350,9 @@ const Packs = () => {
               {/* Opening progress indicator */}
               <div className="mt-4 text-center">
                 <div className="text-sm text-base-content/70 mb-2">
-                  {openingState.isOpening && "🔗 Processing pack opening transaction..."}
+                  {openingState.isOpening && "🔗 Processing pack opening..."}
                   {!openingState.isOpening && openingState.openingResult && "🎉 Pack opened! Cards received..."}
-                  {!openingState.isOpening && !openingState.openingResult && "⏳ Waiting for blockchain confirmation..."}
+                  {!openingState.isOpening && !openingState.openingResult && "⏳ Confirming transaction..."}
                 </div>
                 <div className="flex justify-center space-x-1">
                   {[1, 2, 3, 4, 5].map(step => (
