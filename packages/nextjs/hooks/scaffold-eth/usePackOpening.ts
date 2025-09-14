@@ -122,20 +122,21 @@ export function usePackOpening() {
         isOpening: true,
         currentPackId: packId,
         openingResult: null,
-        timeRemaining: 10, // 10 seconds for VRF + animation
+        timeRemaining: 30, // 30 seconds for VRF request + fulfillment
         error: null,
       });
 
-      // Call the emergency pack opening function (bypasses VRF issues)
-      // Note: This requires admin permissions. For testing, use emergencyMintPacks first
+      console.log(`🎯 Opening pack ${packId}...`);
+
       await writeContractAsync({
-        functionName: "emergencyOpenPack",
+        functionName: "openPack",
         args: [packId],
       });
 
-      // The result will be handled by the event listener above
+      console.log("✅ Pack opening transaction sent");
+
     } catch (error) {
-      console.error("Error opening pack:", error);
+      console.error("❌ Error opening pack:", error);
       setOpeningState(prev => ({
         ...prev,
         isOpening: false,

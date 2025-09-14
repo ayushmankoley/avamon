@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 import { ArchiveBoxIcon, ArrowPathIcon, CheckCircleIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { useCardDetails, usePackOpening, usePlayerPacks, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
@@ -41,25 +41,8 @@ const Packs = () => {
   const [revealedCards, setRevealedCards] = useState<RevealedCard[]>([]);
   const [revealStep, setRevealStep] = useState(0);
   const [openingComplete, setOpeningComplete] = useState(false);
-  const [isMockOpening, setIsMockOpening] = useState(false);
 
-  // Ref to prevent infinite loops in card checking
-  const isCheckingCardsRef = useRef(false);
-  const retryCountRef = useRef(0);
-  const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Cleanup effect to prevent memory leaks and infinite loops
-  useEffect(() => {
-    return () => {
-      // Cleanup when component unmounts
-      isCheckingCardsRef.current = false;
-      retryCountRef.current = 0;
-      if (timeoutIdRef.current) {
-        clearTimeout(timeoutIdRef.current);
-        timeoutIdRef.current = null;
-      }
-    };
-  }, []);
 
   // Pack data from contracts - packs are only obtainable through quest rewards and adventure drops
   const availablePacks: Pack[] = packBalances.map(pack => ({
@@ -128,159 +111,27 @@ const Packs = () => {
     setSelectedPack(pack);
     setRevealStep(0);
     setOpeningComplete(false);
-    setIsMockOpening(false);
 
     try {
       // Use the pack opening hook
       await openPack(BigInt(pack.id));
 
-      // Wait for card details to load, then set revealed cards
-      const maxRetries = 60; // 30 seconds maximum wait time
-      retryCountRef.current = 0;
-      isCheckingCardsRef.current = true;
-
-      const checkForCards = () => {
-        if (!isCheckingCardsRef.current) return; // Prevent multiple concurrent checks
-        if (timeoutIdRef.current) return; // Prevent if timeout is already active
-
-        retryCountRef.current++;
-        console.log(`🔍 Checking for pack opening results... (attempt ${retryCountRef.current}/${maxRetries})`);
-
-        const realCards = getRevealedCardsFromResult;
-        if (realCards.length > 0) {
-          console.log(`🎉 Pack opening successful! Found ${realCards.length} cards`);
-          isCheckingCardsRef.current = false;
-          if (timeoutIdRef.current) {
-            clearTimeout(timeoutIdRef.current);
-            timeoutIdRef.current = null;
-          }
-          setRevealedCards(realCards);
-
-          // Start the reveal animation for 5 cards
-          setTimeout(() => setRevealStep(1), 1000);
-          setTimeout(() => setRevealStep(2), 2000);
-          setTimeout(() => setRevealStep(3), 3000);
-          setTimeout(() => setRevealStep(4), 4000);
-          setTimeout(() => setRevealStep(5), 5000);
-          setTimeout(() => {
-            setOpeningComplete(true);
-            setRevealedCards(prev => prev.map(card => ({ ...card, isRevealed: true })));
-          }, 6000);
-        } else if (retryCountRef.current < maxRetries) {
-          // Retry in 500ms if cards not loaded yet
-          console.log(`⏳ No cards found yet, retrying in 500ms...`);
-          timeoutIdRef.current = setTimeout(checkForCards, 500);
-        } else {
-          console.error("❌ Timeout waiting for pack opening results");
-          isCheckingCardsRef.current = false;
-          alert("Pack opening timed out. Please check your transaction and refresh the page.");
-          setSelectedPack(null);
-        }
-      };
-
-      checkForCards();
+      console.log("✅ Pack opening transaction sent successfully");
     } catch (error) {
       console.error("Error opening pack:", error);
       alert("Failed to open pack");
     }
   };
 
-  const handleMockPackOpen = (pack: Pack) => {
-    setSelectedPack(pack);
-    setRevealStep(0);
-    setOpeningComplete(false);
-    setIsMockOpening(true);
-
-    // Create mock card data for animation testing
-    const mockCards: RevealedCard[] = [
-      {
-        id: "mock-1",
-        name: "Mock Dragon",
-        rarity: "mythic",
-        templateId: "1",
-        attack: 85,
-        defense: 75,
-        agility: 90,
-        hp: 120,
-        isRevealed: false,
-      },
-      {
-        id: "mock-2",
-        name: "Mock Phoenix",
-        rarity: "rare",
-        templateId: "2",
-        attack: 70,
-        defense: 65,
-        agility: 80,
-        hp: 100,
-        isRevealed: false,
-      },
-      {
-        id: "mock-3",
-        name: "Mock Wolf",
-        rarity: "common",
-        templateId: "3",
-        attack: 55,
-        defense: 60,
-        agility: 65,
-        hp: 85,
-        isRevealed: false,
-      },
-      {
-        id: "mock-4",
-        name: "Mock Bear",
-        rarity: "rare",
-        templateId: "4",
-        attack: 75,
-        defense: 85,
-        agility: 45,
-        hp: 110,
-        isRevealed: false,
-      },
-      {
-        id: "mock-5",
-        name: "Mock Eagle",
-        rarity: "common",
-        templateId: "5",
-        attack: 60,
-        defense: 50,
-        agility: 95,
-        hp: 75,
-        isRevealed: false,
-      },
-    ];
-
-    setRevealedCards(mockCards);
-
-    // Start the reveal animation for 5 cards with enhanced timing
-    setTimeout(() => setRevealStep(1), 1000);
-    setTimeout(() => setRevealStep(2), 2000);
-    setTimeout(() => setRevealStep(3), 3000);
-    setTimeout(() => setRevealStep(4), 4000);
-    setTimeout(() => setRevealStep(5), 5000);
-    setTimeout(() => {
-      setOpeningComplete(true);
-      setRevealedCards(prev => prev.map(card => ({ ...card, isRevealed: true })));
-    }, 6000);
-  };
 
   // Packs are not purchasable - they come from quest rewards and adventure drops only
 
   const handleReset = () => {
-    // Reset refs to prevent any lingering state
-    isCheckingCardsRef.current = false;
-    retryCountRef.current = 0;
-    if (timeoutIdRef.current) {
-      clearTimeout(timeoutIdRef.current);
-      timeoutIdRef.current = null;
-    }
-
     resetOpeningState();
     setSelectedPack(null);
     setRevealedCards([]);
     setRevealStep(0);
     setOpeningComplete(false);
-    setIsMockOpening(false);
   };
 
   if (!address) {
@@ -383,12 +234,6 @@ const Packs = () => {
                             >
                               Open Pack
                             </button>
-                            <button
-                              className="btn btn-outline btn-sm w-full font-semibold text-xs"
-                              onClick={() => handleMockPackOpen(pack)}
-                            >
-                              🎭 Mock Open (Test Animation)
-                            </button>
                           </div>
                         ) : (
                           <div className="text-center space-y-1">
@@ -396,12 +241,6 @@ const Packs = () => {
                               <p className="text-xs font-medium text-base-content/70">No packs available</p>
                             </div>
                             <p className="text-xs font-medium text-base-content/60">Complete quests to earn packs</p>
-                            <button
-                              className="btn btn-outline btn-sm w-full font-semibold text-xs mt-2"
-                              onClick={() => handleMockPackOpen(pack)}
-                            >
-                              🎭 Mock Open (Test Animation)
-                            </button>
                           </div>
                         )}
                       </div>
@@ -442,13 +281,8 @@ const Packs = () => {
           {/* Pack Opening Animation */}
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold mb-4">
-              {isMockOpening ? "🎭 Testing Animation" : "Opening"} {selectedPack?.name}
+              Opening {selectedPack?.name}
             </h2>
-            {isMockOpening && (
-              <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-2 rounded-lg mb-4 inline-block">
-                <p className="text-sm font-medium">Mock Animation Test - No Real Packs Consumed</p>
-              </div>
-            )}
 
             {/* Pack Animation */}
             <div className="relative mb-8">
@@ -516,20 +350,9 @@ const Packs = () => {
               {/* Opening progress indicator */}
               <div className="mt-4 text-center">
                 <div className="text-sm text-base-content/70 mb-2">
-                  {revealStep === 0 && openingState.isOpening && "🔗 Processing transaction..."}
-                  {revealStep === 0 &&
-                    !openingState.isOpening &&
-                    revealedCards.length === 0 &&
-                    "⏳ Waiting for blockchain confirmation..."}
-                  {revealStep === 0 &&
-                    !openingState.isOpening &&
-                    revealedCards.length > 0 &&
-                    "🎉 Cards received! Preparing reveal..."}
-                  {revealStep === 1 && "📦 Opening pack..."}
-                  {revealStep === 2 && "✨ Revealing cards..."}
-                  {revealStep === 3 && "🎯 Almost there..."}
-                  {revealStep === 4 && "🔥 Final reveal..."}
-                  {revealStep === 5 && "🎊 Complete!"}
+                  {openingState.isOpening && "🔗 Processing pack opening transaction..."}
+                  {!openingState.isOpening && openingState.openingResult && "🎉 Pack opened! Cards received..."}
+                  {!openingState.isOpening && !openingState.openingResult && "⏳ Waiting for blockchain confirmation..."}
                 </div>
                 <div className="flex justify-center space-x-1">
                   {[1, 2, 3, 4, 5].map(step => (
@@ -542,13 +365,6 @@ const Packs = () => {
                   ))}
                 </div>
 
-                {/* Show additional info while waiting */}
-                {revealStep === 0 && !openingState.isOpening && revealedCards.length === 0 && (
-                  <div className="mt-3 text-xs text-base-content/50">
-                    <div className="animate-pulse">Fetching your new cards from the blockchain...</div>
-                    <div className="mt-1">This may take a few moments ⏱️</div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -575,30 +391,21 @@ const Packs = () => {
                   <>
                     <div className="text-center mb-3">
                       <div className="aspect-square w-16 bg-base-200 rounded-lg mx-auto mb-2 flex items-center justify-center overflow-hidden">
-                        {isMockOpening ? (
-                          // Show placeholder emoji for mock cards
-                          <span className="text-3xl">
-                            {card.rarity === "mythic" ? "🐉" : card.rarity === "rare" ? "🦅" : "🐺"}
-                          </span>
-                        ) : (
-                          <img
-                            src={`https://gateway.pinata.cloud/ipfs/bafybeigumdywpusxc6kgt32yxyegrhhcdkm4pzk3payv632o4gzcmspqim/${card.templateId}.png`}
-                            alt={card.name}
-                            className="w-full h-full object-cover rounded-lg"
-                            onError={e => {
-                              // Fallback to emoji if image fails to load
-                              const img = e.target as HTMLImageElement;
-                              const fallback = img.nextElementSibling as HTMLElement;
-                              img.style.display = "none";
-                              if (fallback) fallback.style.display = "block";
-                            }}
-                          />
-                        )}
-                        {!isMockOpening && <span className="text-2xl hidden">🐾</span>}
+                        <img
+                          src={`https://gateway.pinata.cloud/ipfs/bafybeigumdywpusxc6kgt32yxyegrhhcdkm4pzk3payv632o4gzcmspqim/${card.templateId}.png`}
+                          alt={card.name}
+                          className="w-full h-full object-cover rounded-lg"
+                          onError={e => {
+                            // Fallback to emoji if image fails to load
+                            const img = e.target as HTMLImageElement;
+                            const fallback = img.nextElementSibling as HTMLElement;
+                            img.style.display = "none";
+                            if (fallback) fallback.style.display = "block";
+                          }}
+                        />
                       </div>
                       <h3 className="font-bold text-sm">{card.name}</h3>
                       <p className="text-xs text-base-content/70 capitalize">{card.rarity}</p>
-                      {isMockOpening && <p className="text-xs text-orange-600 font-medium">Mock Data</p>}
                     </div>
                     <div className="grid grid-cols-2 gap-1 text-xs">
                       <div>⚔️ {card.attack}</div>
@@ -621,32 +428,22 @@ const Packs = () => {
           {openingComplete && (
             <div className="text-center">
               <div
-                className={`px-4 py-3 rounded-lg mb-4 inline-block ${
-                  isMockOpening
-                    ? "bg-blue-100 border border-blue-400 text-blue-700"
-                    : "bg-green-100 border border-green-400 text-green-700"
-                }`}
+                className="px-4 py-3 rounded-lg mb-4 inline-block bg-green-100 border border-green-400 text-green-700"
               >
                 <div className="flex items-center">
                   <CheckCircleIcon className="h-5 w-5 mr-2" />
-                  <span>
-                    {isMockOpening
-                      ? "Mock animation completed! This was just a test."
-                      : "Packs opened successfully! Cards added to your collection."}
-                  </span>
+                  <span>Packs opened successfully! Cards added to your collection.</span>
                 </div>
               </div>
 
               <div className="flex gap-4 justify-center">
                 <button className="btn btn-primary" onClick={handleReset}>
                   <ArrowPathIcon className="h-4 w-4 mr-2" />
-                  {isMockOpening ? "Test Another Animation" : "Open Another Pack"}
+                  Open Another Pack
                 </button>
-                {!isMockOpening && (
-                  <button className="btn btn-outline" onClick={() => (window.location.href = "/cards")}>
-                    View Collection
-                  </button>
-                )}
+                <button className="btn btn-outline" onClick={() => (window.location.href = "/cards")}>
+                  View Collection
+                </button>
               </div>
             </div>
           )}
