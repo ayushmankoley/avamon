@@ -172,78 +172,113 @@ const Packs = () => {
       </div>
 
       {!openingState.isOpening ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {availablePacks.map((pack) => (
-            <div key={pack.id} className="bg-base-100 rounded-lg p-6 shadow-lg">
-              <div className="text-center mb-6">
-                <div className="w-24 h-24 mx-auto mb-4 rounded-lg overflow-hidden">
-                  <img 
-                    src={`https://gateway.pinata.cloud/ipfs/bafybeigumdywpusxc6kgt32yxyegrhhcdkm4pzk3payv632o4gzcmspqim/pack_${pack.type}.png`}
-                    alt={`${pack.name} pack`}
-                    className="w-full h-full object-cover rounded-lg"
-                    onError={(e) => {
-                      // Fallback to colored box with icon if image fails to load
-                      const img = e.target as HTMLImageElement;
-                      const fallback = img.nextElementSibling as HTMLElement;
-                      img.style.display = 'none';
-                      if (fallback) fallback.style.display = 'flex';
-                    }}
-                  />
-                  <div className={`w-full h-full rounded-lg hidden items-center justify-center ${
-                    pack.type === 'blue' ? 'bg-blue-500' :
-                    pack.type === 'green' ? 'bg-green-500' : 'bg-red-500'
-                  }`}>
-                    <ArchiveBoxIcon className="h-12 w-12 text-white" />
+        <>
+          {/* First Row - Pack Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            {availablePacks.map((pack) => (
+              <div key={pack.id} className="bg-base-100 rounded-lg p-6 shadow-lg h-160">
+                <div className="flex flex-col h-full">
+                  {/* Pack Image - 70% height, 100% width */}
+                  <div className="h-60%] w-full rounded-lg overflow-hidden">
+                    <img 
+                      src={`https://gateway.pinata.cloud/ipfs/bafybeigumdywpusxc6kgt32yxyegrhhcdkm4pzk3payv632o4gzcmspqim/pack_${pack.type}.png`}
+                      alt={`${pack.name} pack`}
+                      className="w-full h-full object-cover rounded-lg"
+                      onError={(e) => {
+                        // Fallback to colored box with icon if image fails to load
+                        const img = e.target as HTMLImageElement;
+                        const fallback = img.nextElementSibling as HTMLElement;
+                        img.style.display = 'none';
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                    <div className={`w-full h-full rounded-lg hidden items-center justify-center ${
+                      pack.type === 'blue' ? 'bg-blue-500' :
+                      pack.type === 'green' ? 'bg-green-500' : 'bg-red-500'
+                    }`}>
+                      <ArchiveBoxIcon className="h-16 w-16 text-white" />
+                    </div>
+                  </div>
+
+                  {/* Pack Details - 30% height, 100% width */}
+                  <div className="h-[30%] w-full flex flex-col justify-between pt-2">
+                    <div className="text-center">
+                      <h3 className="text-lg font-bold mb-1">{pack.name}</h3>
+                      <p className="text-xs text-base-content/70 mb-2">Quest Reward Only</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <h4 className="font-medium mb-1 text-xs">Rarity Odds:</h4>
+                        <div className="space-y-0 text-xs">
+                          <div className="flex justify-between">
+                            <span>Common:</span>
+                            <span>{pack.rarityOdds.common}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Rare:</span>
+                            <span>{pack.rarityOdds.rare}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Mythic:</span>
+                            <span>{pack.rarityOdds.mythic}%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col justify-between">
+                        <div className="text-center mb-1">
+                          <span className="font-medium text-xs">Owned:</span>
+                          <div className="text-lg font-bold">{pack.count}</div>
+                        </div>
+
+                        {pack.count > 0 ? (
+                          <button
+                            className="btn btn-primary btn-sm w-full"
+                            onClick={() => handleOpenPack(pack)}
+                          >
+                            <SparklesIcon className="h-3 w-3 mr-1" />
+                            Open
+                          </button>
+                        ) : (
+                          <div className="text-center">
+                            <p className="text-xs text-base-content/70 mb-1">No packs</p>
+                            <p className="text-xs text-base-content/50">Complete quests</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <h3 className="text-xl font-bold">{pack.name}</h3>
-                <p className="text-sm text-base-content/70">Quest Reward Only</p>
               </div>
+            ))}
+          </div>
 
-              <div className="mb-4">
-                <h4 className="font-medium mb-2">Rarity Odds:</h4>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span>Common:</span>
-                    <span>{pack.rarityOdds.common}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Rare:</span>
-                    <span>{pack.rarityOdds.rare}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Mythic:</span>
-                    <span>{pack.rarityOdds.mythic}%</span>
-                  </div>
+          {/* Second Row - Pack Statistics */}
+          <div className="bg-base-100 rounded-lg p-6 shadow-lg">
+            <h3 className="text-xl font-bold mb-4">Pack Statistics</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-500">
+                  {packBalances.reduce((total, pack) => total + pack.balance, 0)}
                 </div>
+                <p className="text-sm text-base-content/70">Total Packs Owned</p>
               </div>
-
-              <div className="mb-4">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Owned:</span>
-                  <span className="text-lg font-bold">{pack.count}</span>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-green-500">
+                  {availablePacks.reduce((total, pack) => total + (pack.count > 0 ? 1 : 0), 0)}
                 </div>
+                <p className="text-sm text-base-content/70">Pack Types Available</p>
               </div>
-
-              <div className="space-y-2">
-                {pack.count > 0 ? (
-                  <button
-                    className="btn btn-primary w-full"
-                    onClick={() => handleOpenPack(pack)}
-                  >
-                    <SparklesIcon className="h-4 w-4 mr-2" />
-                    Open Pack
-                  </button>
-                ) : (
-                  <div className="text-center py-3">
-                    <p className="text-sm text-base-content/70 mb-2">No packs available</p>
-                    <p className="text-xs text-base-content/50">Complete quests or adventures to earn packs</p>
-                  </div>
-                )}
+              <div className="text-center">
+                <div className="text-3xl font-bold text-purple-500">
+                  {revealedCards.filter(card => card.isRevealed).length}
+                </div>
+                <p className="text-sm text-base-content/70">Cards Revealed Today</p>
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        </>
       ) : (
         <div className="max-w-4xl mx-auto">
           {/* Pack Opening Animation */}
@@ -367,31 +402,6 @@ const Packs = () => {
           )}
         </div>
       )}
-
-      {/* Pack Statistics */}
-      <div className="mt-12 bg-base-100 rounded-lg p-6 shadow-lg">
-        <h3 className="text-xl font-bold mb-4">Pack Statistics</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-blue-500">
-              {packBalances.reduce((total, pack) => total + pack.balance, 0)}
-            </div>
-            <p className="text-sm text-base-content/70">Total Packs Owned</p>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-green-500">
-              {availablePacks.reduce((total, pack) => total + (pack.count > 0 ? 1 : 0), 0)}
-            </div>
-            <p className="text-sm text-base-content/70">Pack Types Available</p>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-purple-500">
-              {revealedCards.filter(card => card.isRevealed).length}
-            </div>
-            <p className="text-sm text-base-content/70">Cards Revealed Today</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

@@ -38,47 +38,26 @@ const AvamonCard = ({
   onClick
 }: AvamonCardProps) => {
   const rarityColors = {
-    0: "border-gray-400 bg-gray-50", // Common
-    1: "border-blue-400 bg-blue-50", // Rare
-    2: "border-yellow-400 bg-yellow-50" // Mythic
+    0: "border-gray-400", // Common
+    1: "border-blue-400", // Rare
+    2: "border-yellow-400" // Mythic
   };
-
-  const rarityNames = ["Common", "Rare", "Mythic"];
 
   return (
     <div
-      className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-lg ${
+      className={`relative w-full h-full rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-lg overflow-hidden ${
         rarityColors[rarity as keyof typeof rarityColors]
       } ${isSelected ? 'ring-2 ring-primary' : ''}`}
       onClick={onClick}
     >
-      <div className="text-center">
-        <div className="w-20 h-20 bg-base-200 rounded-lg mx-auto mb-2 flex items-center justify-center overflow-hidden">
-          <img 
-            src={`https://gateway.pinata.cloud/ipfs/bafybeigumdywpusxc6kgt32yxyegrhhcdkm4pzk3payv632o4gzcmspqim/${templateId}.png`}
-            alt={name}
-            className="w-full h-full object-cover rounded-lg"
-            onError={(e) => {
-              // Fallback to emoji if image fails to load
-              const img = e.target as HTMLImageElement;
-              const fallback = img.nextElementSibling as HTMLElement;
-              img.style.display = 'none';
-              if (fallback) fallback.style.display = 'block';
-            }}
-          />
-          <span className="text-2xl hidden">🐾</span>
-        </div>
-        <h3 className="font-bold text-sm">{name}</h3>
-        <p className="text-xs text-base-content/70">{rarityNames[rarity]}</p>
-        <div className="grid grid-cols-2 gap-1 mt-2 text-xs">
-          <div>⚔️ {attack}</div>
-          <div>🛡️ {defense}</div>
-          <div>💨 {agility}</div>
-          <div>❤️ {hp}</div>
-        </div>
-      </div>
+      <img
+        src={`https://gateway.pinata.cloud/ipfs/bafybeigumdywpusxc6kgt32yxyegrhhcdkm4pzk3payv632o4gzcmspqim/${templateId}.png`}
+        alt={name}
+        className="w-full h-full object-cover"
+      />
+
       {isSelected && (
-        <div className="absolute -top-2 -right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+        <div className="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
           <span className="text-white text-xs">✓</span>
         </div>
       )}
@@ -223,7 +202,7 @@ const Cards = () => {
       {viewMode === 'inventory' && (
         <>
           {/* Filters */}
-          <div className="bg-base-100 rounded-lg p-4 mb-6 shadow-lg">
+          <div className="bg-base-100 rounded-lg p-4 mb-6 shadow-lg overflow-hidden">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <div className="relative">
@@ -273,20 +252,21 @@ const Cards = () => {
             </div>
           </div>
 
-          {/* Card Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          {/* Card Grid - MODIFIED: Changed from 6 columns to 3 columns and aspect ratio */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-fr">
             {filteredCards.map((card) => (
-              <AvamonCard
-                key={card.tokenId.toString()}
-                tokenId={card.tokenId.toString()}
-                templateId={card.templateId.toString()}
-                name={card.name}
-                rarity={card.rarity}
-                attack={card.attack}
-                defense={card.defense}
-                agility={card.agility}
-                hp={card.hp}
-              />
+              <div key={card.tokenId.toString()} className="aspect-[3/4] h-100 p-5">
+                <AvamonCard
+                  tokenId={card.tokenId.toString()}
+                  templateId={card.templateId.toString()}
+                  name={card.name}
+                  rarity={card.rarity}
+                  attack={card.attack}
+                  defense={card.defense}
+                  agility={card.agility}
+                  hp={card.hp}
+                />
+              </div>
             ))}
           </div>
 
@@ -298,110 +278,128 @@ const Cards = () => {
         </>
       )}
 
-      {viewMode === 'deckBuilder' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Deck Slots */}
-          <div className="lg:col-span-1">
-            <div className="bg-base-100 rounded-lg p-4 shadow-lg">
-              <h2 className="text-xl font-bold mb-4">Deck Slots</h2>
-              <div className="space-y-2">
-                {Array.from({ length: maxDeckSlots }, (_, index) => (
-                  <button
-                    key={index}
-                    className={`w-full p-3 rounded-lg border-2 transition-colors ${
-                      selectedDeckIndex === index
-                        ? 'border-primary bg-primary/10'
-                        : 'border-base-300 hover:border-primary'
-                    }`}
-                    onClick={() => loadDeck(index)}
-                  >
-                    <div className="flex justify-between items-center">
-                      <span>Deck {index + 1}</span>
-                      {savedDecks[index] && <span className="text-sm text-base-content/70">{savedDecks[index].name}</span>}
-                    </div>
-                  </button>
-                ))}
-                {maxDeckSlots < 3 && (
-                  <button
-                    className="w-full p-3 rounded-lg border-2 border-dashed border-primary hover:bg-primary/10 transition-colors"
-                    onClick={handleUpgradeDeckSlots}
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <PlusIcon className="h-4 w-4" />
-                      <span>Upgrade to 3 Slots (0.1 AVAX)</span>
-                    </div>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Card Selection */}
-          <div className="lg:col-span-2">
-            <div className="bg-base-100 rounded-lg p-4 shadow-lg mb-4">
-              <h2 className="text-xl font-bold mb-4">
-                Selected Cards ({currentDeck.length}/4)
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                {Array.from({ length: 4 }, (_, index) => {
-                  const cardId = currentDeck[index];
-                  const card = cardId ? ownedCards.find(c => c.tokenId === cardId) : null;
-
-                  return (
-                    <div
-                      key={index}
-                      className="w-full aspect-square bg-base-200 rounded-lg border-2 border-dashed border-base-300 flex items-center justify-center"
-                    >
-                      {card ? (
-                        <div className="text-center">
-                          <span className="text-2xl">🐾</span>
-                          <p className="text-xs mt-1">{card.name}</p>
-                        </div>
-                      ) : (
-                        <span className="text-base-content/50">Empty</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+{viewMode === 'deckBuilder' && (
+  <div className="space-y-6">
+    {/* Top Row: Deck Slots and Selected Cards with Equal Height */}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Deck Slots */}
+      <div className="lg:col-span-1">
+        <div className="bg-base-100 rounded-lg p-4 shadow-lg h-110">
+          <h2 className="text-xl font-bold mb-4">Deck Slots</h2>
+          <div className="space-y-2 overflow-y-auto h-60">
+            {Array.from({ length: maxDeckSlots }, (_, index) => (
               <button
-                className="btn btn-primary w-full"
-                onClick={handleSaveDeck}
-                disabled={currentDeck.length !== 4}
+                key={index}
+                className={`w-full p-3 rounded-lg border-2 transition-colors ${
+                  selectedDeckIndex === index
+                    ? 'border-primary bg-primary/10'
+                    : 'border-base-300 hover:border-primary'
+                }`}
+                onClick={() => loadDeck(index)}
               >
-                Save Deck
-              </button>
-            </div>
-
-            {/* Available Cards */}
-            <div className="bg-base-100 rounded-lg p-4 shadow-lg">
-              <h2 className="text-xl font-bold mb-4">Available Cards</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {ownedCards.map((card) => (
-                  <AvamonCard
-                    key={card.tokenId.toString()}
-                    tokenId={card.tokenId.toString()}
-                    templateId={card.templateId.toString()}
-                    name={card.name}
-                    rarity={card.rarity}
-                    attack={card.attack}
-                    defense={card.defense}
-                    agility={card.agility}
-                    hp={card.hp}
-                    isSelected={currentDeck.includes(card.tokenId)}
-                    onClick={() => handleCardSelect(card.tokenId.toString())}
-                  />
-                ))}
-              </div>
-              {ownedCards.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-base-content/70">No cards available. Open some packs to get started!</p>
+                <div className="flex justify-between items-center">
+                  <span>Deck {index + 1}</span>
+                  {savedDecks[index] && <span className="text-sm text-base-content/70">{savedDecks[index].name}</span>}
                 </div>
-              )}
-            </div>
+              </button>
+            ))}
+            {maxDeckSlots < 3 && (
+              <button
+                className="w-full p-3 rounded-lg border-2 border-dashed border-primary hover:bg-primary/10 transition-colors"
+                onClick={handleUpgradeDeckSlots}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <PlusIcon className="h-4 w-4" />
+                  <span>Upgrade to 3 Slots (0.1 AVAX)</span>
+                </div>
+              </button>
+            )}
           </div>
         </div>
+      </div>
+
+      {/* Selected Cards */}
+      <div className="lg:col-span-2">
+        <div className="bg-base-100 rounded-lg p-4 shadow-lg h-110">
+          <h2 className="text-xl font-bold mb-4">
+            Selected Cards ({currentDeck.length}/4)
+          </h2>
+          
+          {/* Empty Slots in Single Row - Rectangle Layout */}
+          <div className="grid grid-cols-4 gap-3 mb-4 min-h-80 p-5">
+            {Array.from({ length: 4 }, (_, index) => {
+              const cardId = currentDeck[index];
+              const card = cardId ? ownedCards.find(c => c.tokenId === cardId) : null;
+
+              return (
+                <div
+                  key={index}
+                  className="bg-base-200 rounded-lg border-2 border-dashed border-base-300 flex items-center justify-center relative overflow-hidden"
+                >
+                  {card ? (
+                    <div className="w-full h-full">
+                      <AvamonCard
+                        tokenId={card.tokenId.toString()}
+                        templateId={card.templateId.toString()}
+                        name={card.name}
+                        rarity={card.rarity}
+                        attack={card.attack}
+                        defense={card.defense}
+                        agility={card.agility}
+                        hp={card.hp}
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <div className="text-base-content/30 text-2xl mb-1">+</div>
+                      <span className="text-base-content/50 text-xs font-medium">Slot {index + 1}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <button
+            className="btn btn-primary w-full"
+            onClick={handleSaveDeck}
+            disabled={currentDeck.length !== 4}
+          >
+            Save Deck
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* Available Cards - Full Width */}
+    <div className="bg-base-100 rounded-lg p-4 shadow-lg">
+      <h2 className="text-xl font-bold mb-4">Available Cards</h2>
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
+        {ownedCards.map((card) => (
+          <div key={card.tokenId.toString()} className="aspect-[3/4]">
+            <AvamonCard
+              tokenId={card.tokenId.toString()}
+              templateId={card.templateId.toString()}
+              name={card.name}
+              rarity={card.rarity}
+              attack={card.attack}
+              defense={card.defense}
+              agility={card.agility}
+              hp={card.hp}
+              isSelected={currentDeck.includes(card.tokenId)}
+              onClick={() => handleCardSelect(card.tokenId.toString())}
+            />
+          </div>
+        ))}
+      </div>
+      {ownedCards.length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-base-content/70">No cards available. Open some packs to get started!</p>
+        </div>
       )}
+    </div>
+  </div>
+)}
     </div>
   );
 };
