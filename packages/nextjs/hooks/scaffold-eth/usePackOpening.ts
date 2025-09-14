@@ -34,7 +34,7 @@ export function usePackOpening() {
   const { data: packOpenedEvents } = useScaffoldEventHistory({
     contractName: "AvamonPackOpener",
     eventName: "PackOpened",
-    fromBlock: BigInt(-1000),
+    fromBlock: 0n, // Get all historical events
     watch: true,
   });
 
@@ -47,14 +47,33 @@ export function usePackOpening() {
   });
 
   // Memoize events to prevent infinite re-renders
-  const memoizedPackEvents = useMemo(() => packOpenedEvents, [packOpenedEvents?.length]);
+  const memoizedPackEvents = useMemo(() => {
+    if (packOpenedEvents && packOpenedEvents.length > 0) {
+      console.log(`📦 PackOpened events loaded: ${packOpenedEvents.length} total events`);
+      console.log("📦 Latest pack events:", packOpenedEvents.slice(-3).map(e => ({
+        user: e.args?.user,
+        packId: e.args?.packId?.toString(),
+        cardIds: e.args?.cardIds?.map(id => id.toString())
+      })));
+    } else {
+      console.log("📦 No PackOpened events loaded yet");
+    }
+    return packOpenedEvents;
+  }, [packOpenedEvents?.length]);
 
   // Update opening state when events occur
   useEffect(() => {
-    if (memoizedPackEvents && memoizedPackEvents.length > 0) {
-      const latestEvent = memoizedPackEvents[memoizedPackEvents.length - 1];
-      if (latestEvent.args?.user?.toLowerCase() === address?.toLowerCase()) {
+    if (memoizedPackEvents && memoizedPackEvents.length > 0 && address) {
+      // Look for the most recent pack opening event for this user
+      const userEvents = memoizedPackEvents.filter(event => 
+        event.args?.user?.toLowerCase() === address.toLowerCase()
+      );
+      
+      if (userEvents.length > 0) {
+        const latestEvent = userEvents[userEvents.length - 1];
         const cardIds = latestEvent.args?.cardIds || [];
+        
+        console.log(`🎉 Found pack opening event for user: packId=${latestEvent.args?.packId}, cards=${cardIds.length}`);
 
         setOpeningState(prev => ({
           ...prev,
@@ -65,6 +84,7 @@ export function usePackOpening() {
             isCompleted: true,
           },
           timeRemaining: 0,
+          error: null,
         }));
       }
     }
@@ -169,10 +189,12 @@ export function useCardDetails(tokenIds: readonly bigint[]) {
     }
 
     if (!avamonCardsContract || !avamonCoreContract) {
+      console.log("⏳ Contracts not ready yet, waiting...");
       setIsLoading(false);
       return;
     }
 
+    console.log(`🔍 Fetching card details for ${tokenIds.length} cards:`, tokenIds.map(id => id.toString()));
     setIsLoading(true);
     setError(null);
 
@@ -182,8 +204,15 @@ export function useCardDetails(tokenIds: readonly bigint[]) {
       // Fetch real card data from blockchain for each token ID
       for (const tokenId of tokenIds) {
         try {
+          console.log(`📋 Fetching data for card ${tokenId}...`);
+          
           // Get real card stats from the contract
           const cardStats = await avamonCardsContract.read.cardStats([tokenId]);
+          console.log(`📊 Card ${tokenId} stats:`, {
+            templateId: cardStats[0].toString(),
+            attack: cardStats[1].toString(),
+            rarity: cardStats[5].toString()
+          });
           
           // Get template information from AvamonCore
           const templateId = cardStats[0]; // templateId from cardStats
@@ -200,9 +229,10 @@ export function useCardDetails(tokenIds: readonly bigint[]) {
             hp: Number(cardStats[4]), // hp from cardStats
           };
 
+          console.log(`✅ Card ${tokenId} details loaded:`, cardDetail);
           details.push(cardDetail);
         } catch (cardError) {
-          console.error(`Error fetching data for card ${tokenId}:`, cardError);
+          console.error(`❌ Error fetching data for card ${tokenId}:`, cardError);
           
           // Fallback for this specific card if data fetch fails
           const fallbackDetail = {
@@ -219,9 +249,10 @@ export function useCardDetails(tokenIds: readonly bigint[]) {
         }
       }
 
+      console.log(`🎯 All card details loaded: ${details.length} cards`);
       setCardDetails(details);
     } catch (err) {
-      console.error("Error fetching card details:", err);
+      console.error("❌ Error fetching card details:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch card details");
 
       // Fallback to basic data for all cards
@@ -239,7 +270,7 @@ export function useCardDetails(tokenIds: readonly bigint[]) {
     } finally {
       setIsLoading(false);
     }
-  }, [tokenIdsString]); // Remove contract dependencies to prevent infinite re-renders
+  }, [tokenIdsString, avamonCardsContract, avamonCoreContract]); // Include contracts in dependencies
 
   // Get card details when tokenIds change
   useEffect(() => {

@@ -116,9 +116,16 @@ const Packs = () => {
       await openPack(BigInt(pack.id));
 
       // Wait for card details to load, then set revealed cards
+      let retryCount = 0;
+      const maxRetries = 60; // 30 seconds maximum wait time
+      
       const checkForCards = () => {
+        retryCount++;
+        console.log(`🔍 Checking for pack opening results... (attempt ${retryCount}/${maxRetries})`);
+        
         const realCards = getRevealedCardsFromResult();
         if (realCards.length > 0) {
+          console.log(`🎉 Pack opening successful! Found ${realCards.length} cards`);
           setRevealedCards(realCards);
 
           // Start the reveal animation for 5 cards
@@ -131,9 +138,14 @@ const Packs = () => {
             setOpeningComplete(true);
             setRevealedCards(prev => prev.map(card => ({ ...card, isRevealed: true })));
           }, 6000);
-        } else {
+        } else if (retryCount < maxRetries) {
           // Retry in 500ms if cards not loaded yet
+          console.log(`⏳ No cards found yet, retrying in 500ms...`);
           setTimeout(checkForCards, 500);
+        } else {
+          console.error("❌ Timeout waiting for pack opening results");
+          alert("Pack opening timed out. Please check your transaction and refresh the page.");
+          setSelectedPack(null);
         }
       };
 
@@ -443,12 +455,14 @@ const Packs = () => {
               {/* Opening progress indicator */}
               <div className="mt-4 text-center">
                 <div className="text-sm text-base-content/70 mb-2">
-                  {revealStep === 0 && "Preparing to open..."}
-                  {revealStep === 1 && "Opening pack..."}
-                  {revealStep === 2 && "Revealing cards..."}
-                  {revealStep === 3 && "Almost there..."}
-                  {revealStep === 4 && "Final reveal..."}
-                  {revealStep === 5 && "Complete!"}
+                  {revealStep === 0 && openingState.isOpening && "🔗 Processing transaction..."}
+                  {revealStep === 0 && !openingState.isOpening && revealedCards.length === 0 && "⏳ Waiting for blockchain confirmation..."}
+                  {revealStep === 0 && !openingState.isOpening && revealedCards.length > 0 && "🎉 Cards received! Preparing reveal..."}
+                  {revealStep === 1 && "📦 Opening pack..."}
+                  {revealStep === 2 && "✨ Revealing cards..."}
+                  {revealStep === 3 && "🎯 Almost there..."}
+                  {revealStep === 4 && "🔥 Final reveal..."}
+                  {revealStep === 5 && "🎊 Complete!"}
                 </div>
                 <div className="flex justify-center space-x-1">
                   {[1, 2, 3, 4, 5].map((step) => (
@@ -460,6 +474,14 @@ const Packs = () => {
                     />
                   ))}
                 </div>
+                
+                {/* Show additional info while waiting */}
+                {revealStep === 0 && !openingState.isOpening && revealedCards.length === 0 && (
+                  <div className="mt-3 text-xs text-base-content/50">
+                    <div className="animate-pulse">Fetching your new cards from the blockchain...</div>
+                    <div className="mt-1">This may take a few moments ⏱️</div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

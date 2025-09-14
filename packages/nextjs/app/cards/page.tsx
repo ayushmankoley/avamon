@@ -149,10 +149,82 @@ const Cards = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-base-content/70">Loading your cards...</p>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-base-100 to-base-200">
+        <div className="text-center max-w-md">
+          {/* Animated Card Stack */}
+          <div className="relative mb-8">
+            <div className="flex justify-center space-x-2">
+              {[...Array(3)].map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-16 h-20 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg border-2 border-primary/30 shadow-lg transform transition-all duration-1000 ${
+                    i === 0 ? 'animate-bounce' : i === 1 ? 'animate-pulse' : 'animate-ping'
+                  }`}
+                  style={{
+                    animationDelay: `${i * 0.2}s`,
+                    transform: `rotate(${(i - 1) * 5}deg) translateY(${i * 2}px)`
+                  }}
+                >
+                  <div className="w-full h-full bg-gradient-to-br from-primary/10 to-transparent rounded-md flex items-center justify-center">
+                    <div className="w-8 h-8 bg-primary/20 rounded-full animate-pulse"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Magical sparkles */}
+            <div className="absolute inset-0 pointer-events-none">
+              {[...Array(6)].map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute w-2 h-2 bg-primary rounded-full animate-ping"
+                  style={{
+                    top: `${20 + (i * 15)}%`,
+                    left: `${10 + (i * 15)}%`,
+                    animationDelay: `${i * 0.3}s`,
+                    animationDuration: '2s'
+                  }}
+                ></div>
+              ))}
+            </div>
+          </div>
+
+          {/* Loading Text with Animation */}
+          <div className="space-y-3">
+            <h3 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              Summoning Your Cards
+            </h3>
+            <div className="flex justify-center space-x-1">
+              {['Scanning', 'the', 'blockchain'].map((word, i) => (
+                <span
+                  key={i}
+                  className="text-base-content/70 animate-pulse"
+                  style={{ animationDelay: `${i * 0.2}s` }}
+                >
+                  {word}
+                </span>
+              ))}
+              <div className="flex space-x-1 ml-1">
+                {[...Array(3)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-1 h-1 bg-primary rounded-full animate-bounce"
+                    style={{ animationDelay: `${i * 0.1}s` }}
+                  ></div>
+                ))}
+              </div>
+            </div>
+            <p className="text-sm text-base-content/50">
+              ✨ Gathering your legendary collection...
+            </p>
+          </div>
+
+          {/* Progress Indicator */}
+          <div className="mt-6">
+            <div className="w-64 h-2 bg-base-300 rounded-full overflow-hidden mx-auto">
+              <div className="h-full bg-gradient-to-r from-primary to-secondary rounded-full animate-pulse"></div>
+            </div>
+          </div>
         </div>
       </div>
     );
