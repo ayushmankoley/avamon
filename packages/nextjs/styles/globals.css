@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
@@ -90,6 +91,7 @@
 
   body {
     min-height: 100vh;
+    font-family: 'Press Start 2P', monospace;
   }
 
   h1,
@@ -97,7 +99,8 @@
   h3,
   h4 {
     margin-bottom: 0.5rem;
-    line-height: 1;
+    line-height: 1.2;
+    font-family: 'Press Start 2P', monospace;
   }
 }
 
@@ -120,4 +123,147 @@
 
 .link:hover {
   opacity: 80%;
+}
+
+/* Pixel Art Gaming Styles */
+.pixel-panel {
+  background: #2a2a2a;
+  border: 4px solid #4a4a4a;
+  border-top-color: #6a6a6a;
+  border-left-color: #6a6a6a;
+  border-right-color: #1a1a1a;
+  border-bottom-color: #1a1a1a;
+  box-shadow: inset 2px 2px 0 #5a5a5a, inset -2px -2px 0 #0a0a0a;
+}
+
+.pixel-panel-light {
+  background: #f5f5f5af;
+  border: 4px solid #d0d0d0;
+  border-top-color: #f8f8f8;
+  border-left-color: #f8f8f8;
+  border-right-color: #a0a0a0;
+  border-bottom-color: #a0a0a0;
+  box-shadow: inset 2px 2px 0 #ffffff, inset -2px -2px 0 #808080;
+}
+
+.pixel-button {
+  background: #4a90e2;
+  border: 3px solid #357abd;
+  border-top-color: #6bb6ff;
+  border-left-color: #6bb6ff;
+  border-right-color: #2e5a85;
+  border-bottom-color: #2e5a85;
+  box-shadow: 2px 2px 0 #1a4a6b;
+  font-family: 'Press Start 2P', monospace;
+  text-transform: uppercase;
+  transition: all 0.1s ease;
+  color: #e8f4f8;
+}
+
+.pixel-button:hover {
+  background: #5ba0f2;
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 #1a4a6b;
+  color: #e8f4f8;
+}
+
+.pixel-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.pixel-button-green {
+  background: #4caf50;
+  border-color: #388e3c;
+  border-top-color: #66bb6a;
+  border-left-color: #66bb6a;
+  border-right-color: #2e7d32;
+  border-bottom-color: #2e7d32;
+  box-shadow: 2px 2px 0 #1b5e20;
+  font-family: 'Press Start 2P', monospace;
+  text-transform: uppercase;
+  transition: all 0.1s ease;
+  color: #e8f4f8;
+}
+
+.pixel-button-green:hover {
+  background: #5cbf60;
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 #1b5e20;
+  color: #e8f4f8;
+}
+
+.pixel-button-red {
+  background: #f44336;
+  border-color: #d32f2f;
+  border-top-color: #ef5350;
+  border-left-color: #ef5350;
+  border-right-color: #c62828;
+  border-bottom-color: #c62828;
+  box-shadow: 2px 2px 0 #b71c1c;
+  font-family: 'Press Start 2P', monospace;
+  text-transform: uppercase;
+  transition: all 0.1s ease;
+  color: #e8f4f8;
+}
+
+.pixel-button-red:hover {
+  background: #f55346;
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 #b71c1c;
+  color: #e8f4f8;
+}
+
+.pixel-button-purple {
+  background: #9c27b0;
+  border-color: #7b1fa2;
+  border-top-color: #ba68c8;
+  border-left-color: #ba68c8;
+  border-right-color: #6a1b9a;
+  border-bottom-color: #6a1b9a;
+  box-shadow: 2px 2px 0 #4a148c;
+  font-family: 'Press Start 2P', monospace;
+  text-transform: uppercase;
+  transition: all 0.1s ease;
+  color: #e8f4f8;
+}
+
+.pixel-button-purple:hover {
+  background: #ac37c0;
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 #4a148c;
+  color: #e8f4f8;
+}
+
+.pixel-button-orange {
+  background: #ff9800;
+  border-color: #f57c00;
+  border-top-color: #ffb74d;
+  border-left-color: #ffb74d;
+  border-right-color: #ef6c00;
+  border-bottom-color: #ef6c00;
+  box-shadow: 2px 2px 0 #e65100;
+  font-family: 'Press Start 2P', monospace;
+  text-transform: uppercase;
+  transition: all 0.1s ease;
+  color: #e8f4f8;
+}
+
+.pixel-button-orange:hover {
+  background: #ffa810;
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 #e65100;
+  color: #e8f4f8;
+}
+
+.energy-bar {
+  background: #2a2a2a;
+  border: 2px solid #4a4a4a;
+  box-shadow: inset 1px 1px 0 #1a1a1a;
+}
+
+.energy-fill {
+  background: linear-gradient(90deg, #ffff00 0%, #ffcc00 50%, #ff9900 100%);
+  border: 1px solid #cc7700;
+  box-shadow: inset 0 1px 0 #ffff77;
 }

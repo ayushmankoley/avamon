@@ -48,6 +48,7 @@ const Packs = () => {
   const [revealedCards, setRevealedCards] = useState<RevealedCard[]>([]);
   const [revealStep, setRevealStep] = useState(0);
   const [openingComplete, setOpeningComplete] = useState(false);
+  const [isMockOpening, setIsMockOpening] = useState(false);
 
   // Pack data from contracts - packs are only obtainable through quest rewards and adventure drops
   const availablePacks: Pack[] = packBalances.map(pack => ({
@@ -108,17 +109,18 @@ const Packs = () => {
     setSelectedPack(pack);
     setRevealStep(0);
     setOpeningComplete(false);
+    setIsMockOpening(false);
 
     try {
       // Use the pack opening hook
       await openPack(BigInt(pack.id));
-      
+
       // Wait for card details to load, then set revealed cards
       const checkForCards = () => {
         const realCards = getRevealedCardsFromResult();
         if (realCards.length > 0) {
           setRevealedCards(realCards);
-          
+
           // Start the reveal animation for 5 cards
           setTimeout(() => setRevealStep(1), 1000);
           setTimeout(() => setRevealStep(2), 2000);
@@ -134,13 +136,92 @@ const Packs = () => {
           setTimeout(checkForCards, 500);
         }
       };
-      
+
       checkForCards();
 
     } catch (error) {
       console.error("Error opening pack:", error);
       alert("Failed to open pack");
     }
+  };
+
+  const handleMockPackOpen = (pack: Pack) => {
+    setSelectedPack(pack);
+    setRevealStep(0);
+    setOpeningComplete(false);
+    setIsMockOpening(true);
+
+    // Create mock card data for animation testing
+    const mockCards: RevealedCard[] = [
+      {
+        id: "mock-1",
+        name: "Mock Dragon",
+        rarity: 'mythic',
+        templateId: "1",
+        attack: 85,
+        defense: 75,
+        agility: 90,
+        hp: 120,
+        isRevealed: false,
+      },
+      {
+        id: "mock-2",
+        name: "Mock Phoenix",
+        rarity: 'rare',
+        templateId: "2",
+        attack: 70,
+        defense: 65,
+        agility: 80,
+        hp: 100,
+        isRevealed: false,
+      },
+      {
+        id: "mock-3",
+        name: "Mock Wolf",
+        rarity: 'common',
+        templateId: "3",
+        attack: 55,
+        defense: 60,
+        agility: 65,
+        hp: 85,
+        isRevealed: false,
+      },
+      {
+        id: "mock-4",
+        name: "Mock Bear",
+        rarity: 'rare',
+        templateId: "4",
+        attack: 75,
+        defense: 85,
+        agility: 45,
+        hp: 110,
+        isRevealed: false,
+      },
+      {
+        id: "mock-5",
+        name: "Mock Eagle",
+        rarity: 'common',
+        templateId: "5",
+        attack: 60,
+        defense: 50,
+        agility: 95,
+        hp: 75,
+        isRevealed: false,
+      },
+    ];
+
+    setRevealedCards(mockCards);
+
+    // Start the reveal animation for 5 cards with enhanced timing
+    setTimeout(() => setRevealStep(1), 1000);
+    setTimeout(() => setRevealStep(2), 2000);
+    setTimeout(() => setRevealStep(3), 3000);
+    setTimeout(() => setRevealStep(4), 4000);
+    setTimeout(() => setRevealStep(5), 5000);
+    setTimeout(() => {
+      setOpeningComplete(true);
+      setRevealedCards(prev => prev.map(card => ({ ...card, isRevealed: true })));
+    }, 6000);
   };
 
   // Packs are not purchasable - they come from quest rewards and adventure drops only
@@ -151,6 +232,7 @@ const Packs = () => {
     setRevealedCards([]);
     setRevealStep(0);
     setOpeningComplete(false);
+    setIsMockOpening(false);
   };
 
   if (!address) {
@@ -176,10 +258,10 @@ const Packs = () => {
           {/* First Row - Pack Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             {availablePacks.map((pack) => (
-              <div key={pack.id} className="bg-base-100 rounded-lg p-6 shadow-lg h-160">
+              <div key={pack.id} className="bg-base-100 rounded-lg p-6 shadow-lg h-220">
                 <div className="flex flex-col h-full">
-                  {/* Pack Image - 70% height, 100% width */}
-                  <div className="h-60%] w-full rounded-lg overflow-hidden">
+                  {/* Pack Image - square format */}
+                  <div className="aspect-square w-full rounded-lg overflow-hidden">
                     <img 
                       src={`https://gateway.pinata.cloud/ipfs/bafybeigumdywpusxc6kgt32yxyegrhhcdkm4pzk3payv632o4gzcmspqim/pack_${pack.type}.png`}
                       alt={`${pack.name} pack`}
@@ -200,50 +282,69 @@ const Packs = () => {
                     </div>
                   </div>
 
-                  {/* Pack Details - 30% height, 100% width */}
-                  <div className="h-[30%] w-full flex flex-col justify-between pt-2">
-                    <div className="text-center">
-                      <h3 className="text-lg font-bold mb-1">{pack.name}</h3>
-                      <p className="text-xs text-base-content/70 mb-2">Quest Reward Only</p>
+                  {/* Pack Details - flexible height */}
+                  <div className="flex-1 w-full flex flex-col">
+                    <div className="text-center mb-4">
+                      <h3 className="text-lg font-bold text-base-content mb-2">{pack.name}</h3>
+                      <div className="inline-block bg-base-200 px-3 py-1 rounded-full">
+                        <span className="text-sm font-medium text-base-content/80">Quest Reward Only</span>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <h4 className="font-medium mb-1 text-xs">Rarity Odds:</h4>
-                        <div className="space-y-0 text-xs">
-                          <div className="flex justify-between">
-                            <span>Common:</span>
-                            <span>{pack.rarityOdds.common}%</span>
+                    <div className="space-y-3 flex-1">
+                      {/* Rarity Odds Section */}
+                      <div className="bg-base-200/50 rounded-lg p-2">
+                        <h4 className="font-semibold text-sm text-base-content mb-2 text-center">Rarity Odds</h4>
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-medium text-base-content/80">Common</span>
+                            <span className="text-xs font-bold text-base-content bg-base-100 px-2 py-0.5 rounded">{pack.rarityOdds.common}%</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Rare:</span>
-                            <span>{pack.rarityOdds.rare}%</span>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-medium text-base-content/80">Rare</span>
+                            <span className="text-xs font-bold text-base-content bg-base-100 px-2 py-0.5 rounded">{pack.rarityOdds.rare}%</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Mythic:</span>
-                            <span>{pack.rarityOdds.mythic}%</span>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-medium text-base-content/80">Mythic</span>
+                            <span className="text-xs font-bold text-base-content bg-base-100 px-2 py-0.5 rounded">{pack.rarityOdds.mythic}%</span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex flex-col justify-between">
-                        <div className="text-center mb-1">
-                          <span className="font-medium text-xs">Owned:</span>
-                          <div className="text-lg font-bold">{pack.count}</div>
+                      {/* Owned Section */}
+                      <div className="bg-base-200/50 rounded-lg p-2">
+                        <div className="text-center mb-2">
+                          <span className="text-xs font-semibold text-base-content/80 block mb-1">Owned</span>
+                          <div className="text-xl font-bold text-base-content">{pack.count}</div>
                         </div>
 
                         {pack.count > 0 ? (
-                          <button
-                            className="btn btn-primary btn-sm w-full"
-                            onClick={() => handleOpenPack(pack)}
-                          >
-                            <SparklesIcon className="h-3 w-3 mr-1" />
-                            Open
-                          </button>
+                          <div className="space-y-2">
+                            <button
+                              className="btn btn-primary btn-sm w-full font-semibold"
+                              onClick={() => handleOpenPack(pack)}
+                            >
+                              Open Pack
+                            </button>
+                            <button
+                              className="btn btn-outline btn-sm w-full font-semibold text-xs"
+                              onClick={() => handleMockPackOpen(pack)}
+                            >
+                              🎭 Mock Open (Test Animation)
+                            </button>
+                          </div>
                         ) : (
-                          <div className="text-center">
-                            <p className="text-xs text-base-content/70 mb-1">No packs</p>
-                            <p className="text-xs text-base-content/50">Complete quests</p>
+                          <div className="text-center space-y-1">
+                            <div className="bg-base-100 rounded-lg py-1 px-2">
+                              <p className="text-xs font-medium text-base-content/70">No packs available</p>
+                            </div>
+                            <p className="text-xs font-medium text-base-content/60">Complete quests to earn packs</p>
+                            <button
+                              className="btn btn-outline btn-sm w-full font-semibold text-xs mt-2"
+                              onClick={() => handleMockPackOpen(pack)}
+                            >
+                              🎭 Mock Open (Test Animation)
+                            </button>
                           </div>
                         )}
                       </div>
@@ -283,12 +384,21 @@ const Packs = () => {
         <div className="max-w-4xl mx-auto">
           {/* Pack Opening Animation */}
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold mb-4">Opening {selectedPack?.name}</h2>
+            <h2 className="text-2xl font-bold mb-4">
+              {isMockOpening ? "🎭 Testing Animation" : "Opening"} {selectedPack?.name}
+            </h2>
+            {isMockOpening && (
+              <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-2 rounded-lg mb-4 inline-block">
+                <p className="text-sm font-medium">Mock Animation Test - No Real Packs Consumed</p>
+              </div>
+            )}
 
             {/* Pack Animation */}
             <div className="relative mb-8">
-              <div className={`w-32 h-32 mx-auto rounded-lg overflow-hidden transition-all duration-1000 ${revealStep >= 1 ? 'animate-bounce' : ''}`}>
-                <img 
+              <div className={`w-32 h-32 mx-auto rounded-lg overflow-hidden transition-all duration-1000 ${
+                revealStep >= 1 ? 'animate-bounce scale-110' : ''
+              } ${revealStep >= 3 ? 'animate-pulse' : ''} ${revealStep >= 5 ? 'opacity-50' : ''}`}>
+                <img
                   src={`https://gateway.pinata.cloud/ipfs/bafybeigumdywpusxc6kgt32yxyegrhhcdkm4pzk3payv632o4gzcmspqim/pack_${selectedPack?.type}.png`}
                   alt={`${selectedPack?.name} pack opening`}
                   className="w-full h-full object-cover rounded-lg"
@@ -308,12 +418,49 @@ const Packs = () => {
                 </div>
               </div>
 
-              {/* Sparkle effects */}
+              {/* Enhanced sparkle effects */}
               {revealStep >= 1 && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <SparklesIcon className="h-8 w-8 text-yellow-400 animate-ping" />
+                  <div className="relative">
+                    <SparklesIcon className="h-8 w-8 text-yellow-400 animate-ping" />
+                    {revealStep >= 2 && (
+                      <>
+                        <SparklesIcon className="absolute -top-2 -left-2 h-4 w-4 text-yellow-300 animate-bounce" />
+                        <SparklesIcon className="absolute -top-2 -right-2 h-4 w-4 text-yellow-300 animate-bounce" style={{ animationDelay: '0.2s' }} />
+                        <SparklesIcon className="absolute -bottom-2 -left-2 h-4 w-4 text-yellow-300 animate-bounce" style={{ animationDelay: '0.4s' }} />
+                        <SparklesIcon className="absolute -bottom-2 -right-2 h-4 w-4 text-yellow-300 animate-bounce" style={{ animationDelay: '0.6s' }} />
+                      </>
+                    )}
+                    {revealStep >= 4 && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-40 h-40 border-4 border-yellow-400 rounded-full animate-ping opacity-20"></div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
+
+              {/* Opening progress indicator */}
+              <div className="mt-4 text-center">
+                <div className="text-sm text-base-content/70 mb-2">
+                  {revealStep === 0 && "Preparing to open..."}
+                  {revealStep === 1 && "Opening pack..."}
+                  {revealStep === 2 && "Revealing cards..."}
+                  {revealStep === 3 && "Almost there..."}
+                  {revealStep === 4 && "Final reveal..."}
+                  {revealStep === 5 && "Complete!"}
+                </div>
+                <div className="flex justify-center space-x-1">
+                  {[1, 2, 3, 4, 5].map((step) => (
+                    <div
+                      key={step}
+                      className={`w-2 h-2 rounded-full transition-colors duration-500 ${
+                        revealStep >= step ? 'bg-yellow-400' : 'bg-base-300'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -338,23 +485,34 @@ const Packs = () => {
                 ) : (
                   <>
                     <div className="text-center mb-3">
-                      <div className="w-16 h-16 bg-base-200 rounded-lg mx-auto mb-2 flex items-center justify-center overflow-hidden">
-                        <img 
-                          src={`https://gateway.pinata.cloud/ipfs/bafybeigumdywpusxc6kgt32yxyegrhhcdkm4pzk3payv632o4gzcmspqim/${card.templateId}.png`}
-                          alt={card.name}
-                          className="w-full h-full object-cover rounded-lg"
-                          onError={(e) => {
-                            // Fallback to emoji if image fails to load
-                            const img = e.target as HTMLImageElement;
-                            const fallback = img.nextElementSibling as HTMLElement;
-                            img.style.display = 'none';
-                            if (fallback) fallback.style.display = 'block';
-                          }}
-                        />
-                        <span className="text-2xl hidden">🐾</span>
+                      <div className="aspect-square w-16 bg-base-200 rounded-lg mx-auto mb-2 flex items-center justify-center overflow-hidden">
+                        {isMockOpening ? (
+                          // Show placeholder emoji for mock cards
+                          <span className="text-3xl">
+                            {card.rarity === 'mythic' ? '🐉' :
+                             card.rarity === 'rare' ? '🦅' : '🐺'}
+                          </span>
+                        ) : (
+                          <img
+                            src={`https://gateway.pinata.cloud/ipfs/bafybeigumdywpusxc6kgt32yxyegrhhcdkm4pzk3payv632o4gzcmspqim/${card.templateId}.png`}
+                            alt={card.name}
+                            className="w-full h-full object-cover rounded-lg"
+                            onError={(e) => {
+                              // Fallback to emoji if image fails to load
+                              const img = e.target as HTMLImageElement;
+                              const fallback = img.nextElementSibling as HTMLElement;
+                              img.style.display = 'none';
+                              if (fallback) fallback.style.display = 'block';
+                            }}
+                          />
+                        )}
+                        {!isMockOpening && <span className="text-2xl hidden">🐾</span>}
                       </div>
                       <h3 className="font-bold text-sm">{card.name}</h3>
                       <p className="text-xs text-base-content/70 capitalize">{card.rarity}</p>
+                      {isMockOpening && (
+                        <p className="text-xs text-orange-600 font-medium">Mock Data</p>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-1 text-xs">
                       <div>⚔️ {card.attack}</div>
@@ -376,10 +534,19 @@ const Packs = () => {
           {/* Completion Actions */}
           {openingComplete && (
             <div className="text-center">
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4 inline-block">
+              <div className={`px-4 py-3 rounded-lg mb-4 inline-block ${
+                isMockOpening
+                  ? 'bg-blue-100 border border-blue-400 text-blue-700'
+                  : 'bg-green-100 border border-green-400 text-green-700'
+              }`}>
                 <div className="flex items-center">
                   <CheckCircleIcon className="h-5 w-5 mr-2" />
-                  <span>Packs opened successfully! Cards added to your collection.</span>
+                  <span>
+                    {isMockOpening
+                      ? "Mock animation completed! This was just a test."
+                      : "Packs opened successfully! Cards added to your collection."
+                    }
+                  </span>
                 </div>
               </div>
 
@@ -389,14 +556,16 @@ const Packs = () => {
                   onClick={handleReset}
                 >
                   <ArrowPathIcon className="h-4 w-4 mr-2" />
-                  Open Another Pack
+                  {isMockOpening ? "Test Another Animation" : "Open Another Pack"}
                 </button>
-                <button
-                  className="btn btn-outline"
-                  onClick={() => window.location.href = '/cards'}
-                >
-                  View Collection
-                </button>
+                {!isMockOpening && (
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => window.location.href = '/cards'}
+                  >
+                    View Collection
+                  </button>
+                )}
               </div>
             </div>
           )}

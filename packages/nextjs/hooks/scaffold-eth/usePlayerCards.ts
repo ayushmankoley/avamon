@@ -124,11 +124,24 @@ export function usePlayerCards() {
   const { data: cardMintedEvents } = useScaffoldEventHistory({
     contractName: "AvamonCards",
     eventName: "CardMinted",
+    fromBlock: 0n, // Get all historical events from the beginning
     watch: true,
   });
 
   // Memoize events to prevent infinite re-renders
-  const memoizedEvents = useMemo(() => cardMintedEvents, [cardMintedEvents?.length]);
+  const memoizedEvents = useMemo(() => {
+    if (cardMintedEvents && cardMintedEvents.length > 0) {
+      console.log(`📊 CardMinted events loaded: ${cardMintedEvents.length} total events`);
+      console.log("📊 First few events:", cardMintedEvents.slice(0, 3).map(e => ({
+        to: e.args?.to,
+        tokenId: e.args?.tokenId?.toString(),
+        templateId: e.args?.templateId?.toString()
+      })));
+    } else {
+      console.log("📊 No CardMinted events loaded yet");
+    }
+    return cardMintedEvents;
+  }, [cardMintedEvents?.length]);
 
   // Memoize the fetchOwnedCards function to prevent infinite re-renders
   const fetchOwnedCards = useCallback(async (forceRefresh = false) => {
@@ -182,21 +195,75 @@ export function usePlayerCards() {
         }
       }
       
-      // If no events found, try scanning a small range (maybe tokens were minted before we started watching)
-      if (tokenIdsToCheck.length === 0) {
-        console.log("🔍 No events found, scanning first 50 tokens...");
-        tokenIdsToCheck = Array.from({ length: 15 }, (_, i) => BigInt(i));
+      // If no events found or very few events, use a smarter scanning approach
+      if (tokenIdsToCheck.length < 5) { // Only do extensive scan if we have very few events
+        console.log(`🔍 Found ${tokenIdsToCheck.length} events, using smart scanning approach...`);
+        
+        // Strategy 1: Try to get user's balance first to see if they have any cards
+        try {
+          const userBalance = await avamonCardsContract.read.balanceOf([address]);
+          const balanceNum = Number(userBalance);
+          console.log(`👤 User balance: ${balanceNum} cards`);
+          
+          if (balanceNum === 0) {
+            console.log("🚫 User has 0 cards, skipping token scan");
+            tokenIdsToCheck = []; // No need to scan if balance is 0
+          } else if (balanceNum > 0) {
+            // User has cards, but we need to find them
+            // Use a smaller, smarter range based on events or reasonable limits
+            const maxFromEvents = tokenIdsToCheck.length > 0 ? Math.max(...tokenIdsToCheck.map(id => Number(id))) + 50 : 100;
+            const maxScanRange = Math.min(100, maxFromEvents);
+            console.log(`🎯 User has ${balanceNum} cards, scanning first ${maxScanRange} tokens...`);
+            const rangeTokens = Array.from({ length: maxScanRange }, (_, i) => BigInt(i));
+            const combinedTokens = [...tokenIdsToCheck, ...rangeTokens];
+            tokenIdsToCheck = Array.from(new Set(combinedTokens.map(id => id.toString()))).map(id => BigInt(id)).sort((a, b) => Number(a - b));
+          }
+        } catch (balanceError) {
+          console.warn("Could not get user balance, using minimal scan");
+          // Fallback to a much smaller range if balance check fails
+          const rangeTokens = Array.from({ length: 50 }, (_, i) => BigInt(i));
+          const combinedTokens = [...tokenIdsToCheck, ...rangeTokens];
+          tokenIdsToCheck = Array.from(new Set(combinedTokens.map(id => id.toString()))).map(id => BigInt(id)).sort((a, b) => Number(a - b));
+        }
       }
       
       console.log("📊 Token IDs to check:", tokenIdsToCheck.map(id => Number(id)));
 
-      // Check only the tokens we know exist from events
+      // Check ownership for potential tokens with optimizations
+      console.log("🔍 Checking token ownership...");
+      let checkedCount = 0;
+      let foundCount = 0;
+      let expectedCards = 0;
+      
+      // Try to get expected number of cards for early termination
+      try {
+        const userBalance = await avamonCardsContract.read.balanceOf([address]);
+        expectedCards = Number(userBalance);
+        console.log(`🎯 Expecting to find ${expectedCards} cards`);
+      } catch (balanceError) {
+        console.warn("Could not get expected card count");
+      }
+      
       for (const tokenId of tokenIdsToCheck) {
         try {
+          checkedCount++;
+          
+          // Progress updates less frequently for better performance
+          if (checkedCount % 25 === 0 || checkedCount === tokenIdsToCheck.length) {
+            console.log(`📊 Checked ${checkedCount}/${tokenIdsToCheck.length} tokens, found ${foundCount} owned cards`);
+          }
+          
+          // Early termination if we've found all expected cards
+          if (expectedCards > 0 && foundCount >= expectedCards) {
+            console.log(`🎯 Found all ${expectedCards} expected cards, stopping scan early`);
+            break;
+          }
+          
           // Check if token exists and who owns it
           const owner = await avamonCardsContract.read.ownerOf([tokenId]);
           
           if (owner.toLowerCase() === address.toLowerCase()) {
+            foundCount++;
             console.log(`✅ User owns token ${tokenId}`);
             
             // Get real card stats from the contract
@@ -218,8 +285,8 @@ export function usePlayerCards() {
             }
             
             // Create card with real blockchain data
-          const card: AvamonCard = {
-            tokenId: tokenId,
+            const card: AvamonCard = {
+              tokenId: tokenId,
               templateId: templateId,
               name: cardName,
               attack: Number(cardStats[1]), // attack from cardStats
@@ -227,9 +294,9 @@ export function usePlayerCards() {
               agility: Number(cardStats[3]), // agility from cardStats
               hp: Number(cardStats[4]), // hp from cardStats
               rarity: Number(cardStats[5]), // rarity from cardStats
-          };
+            };
 
-          cards.push(card);
+            cards.push(card);
           }
         } catch (tokenError: unknown) {
           // Token doesn't exist or other error
@@ -238,8 +305,7 @@ export function usePlayerCards() {
           if (errorMessage.includes("ERC721NonexistentToken") || 
               errorMessage.includes("ERC721: invalid token ID") ||
               errorMessage.includes("nonexistent token")) {
-            // Token doesn't exist - this shouldn't happen since we're checking from events
-            console.warn(`Token ${tokenId} doesn't exist but was in events`);
+            // Token doesn't exist - this is normal, continue silently
             continue;
           } else {
             // Other error - log it but continue
@@ -249,7 +315,7 @@ export function usePlayerCards() {
         }
       }
 
-      console.log(`🎯 Found ${cards.length} cards owned by user from blockchain`);
+      console.log(`🎯 Found ${cards.length} cards owned by user from blockchain (checked ${checkedCount} tokens)`);
 
       // Save to cache
       const tokenIdsSet = new Set(tokenIdsToCheck.map(id => id.toString()));
@@ -266,7 +332,7 @@ export function usePlayerCards() {
       setIsLoading(false);
       setIsFetching(false);
     }
-  }, [address, maxTokenId, memoizedEvents, hasLoadedFromCache, isFetching]); // Depend on address, maxTokenId, and events
+  }, [address, memoizedEvents, hasLoadedFromCache, isFetching, avamonCardsContract, avamonCoreContract]); // Depend on address, events, and contracts
 
   // Fetch from blockchain if no cache is available (only after cache check is complete)
   useEffect(() => {
@@ -329,12 +395,17 @@ export function usePlayerCards() {
   // Add a manual refresh function
   const refreshCards = useCallback(() => {
     console.log("🔄 Manual refresh triggered by user");
+    if (address) {
+      // Clear cache first
+      clearCache(address);
+    }
     setHasLoadedFromCache(false);
     setIsFetching(false);
     setHasCheckedCache(false);
     setIsLoading(true);
+    setOwnedCards([]); // Clear current cards
     fetchOwnedCards(true); // Force refresh
-  }, [fetchOwnedCards]);
+  }, [fetchOwnedCards, address]);
 
   // Clear cache function
   const clearCardsCache = useCallback(() => {
