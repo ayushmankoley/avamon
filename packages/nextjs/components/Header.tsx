@@ -25,10 +25,6 @@ export const menuLinks: HeaderMenuLink[] = [
     href: "/cards",
   },
   {
-    label: "Quests",
-    href: "/quests",
-  },
-  {
     label: "Adventures",
     href: "/adventures",
   },
