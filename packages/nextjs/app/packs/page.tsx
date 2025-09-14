@@ -1,19 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "wagmi";
-import {
-  ArchiveBoxIcon,
-  SparklesIcon,
-  ArrowPathIcon,
-  CheckCircleIcon
-} from "@heroicons/react/24/outline";
-import { usePlayerPacks, useScaffoldWriteContract, usePackOpening, useCardDetails } from "~~/hooks/scaffold-eth";
+import { ArchiveBoxIcon, ArrowPathIcon, CheckCircleIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { useCardDetails, usePackOpening, usePlayerPacks, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
 interface Pack {
   id: string;
   name: string;
-  type: 'blue' | 'green' | 'red';
+  type: "blue" | "green" | "red";
   count: number;
   price: number;
   rarityOdds: {
@@ -26,7 +21,7 @@ interface Pack {
 interface RevealedCard {
   id: string;
   name: string;
-  rarity: 'common' | 'rare' | 'mythic';
+  rarity: "common" | "rare" | "mythic";
   templateId: string;
   attack: number;
   defense: number;
@@ -40,9 +35,7 @@ const Packs = () => {
   const { packBalances } = usePlayerPacks();
   const { writeContractAsync } = useScaffoldWriteContract("AvamonPackOpener");
   const { openingState, openPack, resetOpeningState } = usePackOpening();
-  const { cardDetails, isLoading: cardsLoading } = useCardDetails(
-    openingState.openingResult?.avamonIds || []
-  );
+  const { cardDetails, isLoading: cardsLoading } = useCardDetails(openingState.openingResult?.avamonIds || []);
 
   const [selectedPack, setSelectedPack] = useState<Pack | null>(null);
   const [revealedCards, setRevealedCards] = useState<RevealedCard[]>([]);
@@ -50,27 +43,45 @@ const Packs = () => {
   const [openingComplete, setOpeningComplete] = useState(false);
   const [isMockOpening, setIsMockOpening] = useState(false);
 
+  // Ref to prevent infinite loops in card checking
+  const isCheckingCardsRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup effect to prevent memory leaks and infinite loops
+  useEffect(() => {
+    return () => {
+      // Cleanup when component unmounts
+      isCheckingCardsRef.current = false;
+      retryCountRef.current = 0;
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
+        timeoutIdRef.current = null;
+      }
+    };
+  }, []);
+
   // Pack data from contracts - packs are only obtainable through quest rewards and adventure drops
   const availablePacks: Pack[] = packBalances.map(pack => ({
     id: pack.packId.toString(),
     name: pack.name,
-    type: pack.packId === 1n ? 'blue' : pack.packId === 2n ? 'green' : 'red',
+    type: pack.packId === 1n ? "blue" : pack.packId === 2n ? "green" : "red",
     count: pack.balance,
     price: 0, // Not purchasable
     rarityOdds: {
       common: Number(pack.rarityChances[0]),
       rare: Number(pack.rarityChances[1]),
-      mythic: Number(pack.rarityChances[2])
-    }
+      mythic: Number(pack.rarityChances[2]),
+    },
   }));
 
-  // Get real card data from pack opening results
-  const getRevealedCardsFromResult = (): RevealedCard[] => {
-    if (openingState.openingResult && cardDetails) {
+  // Get real card data from pack opening results (memoized to prevent infinite re-renders)
+  const getRevealedCardsFromResult = useMemo((): RevealedCard[] => {
+    if (openingState.openingResult && cardDetails && cardDetails.length > 0) {
       return cardDetails.map((card, index) => ({
         id: card.tokenId.toString(),
         name: card.name,
-        rarity: (card.rarity === 0 ? 'common' : card.rarity === 1 ? 'rare' : 'mythic') as 'common' | 'rare' | 'mythic',
+        rarity: (card.rarity === 0 ? "common" : card.rarity === 1 ? "rare" : "mythic") as "common" | "rare" | "mythic",
         templateId: card.templateId.toString(),
         attack: card.attack,
         defense: card.defense,
@@ -80,23 +91,31 @@ const Packs = () => {
       }));
     }
     return [];
-  };
+  }, [openingState.openingResult?.avamonIds?.join(','), cardDetails?.length]); // Memoize to prevent infinite re-renders
 
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
-      case 'common': return 'border-gray-400 bg-gray-50';
-      case 'rare': return 'border-blue-400 bg-blue-50';
-      case 'mythic': return 'border-yellow-400 bg-yellow-50';
-      default: return 'border-gray-400 bg-gray-50';
+      case "common":
+        return "border-gray-400 bg-gray-50";
+      case "rare":
+        return "border-blue-400 bg-blue-50";
+      case "mythic":
+        return "border-yellow-400 bg-yellow-50";
+      default:
+        return "border-gray-400 bg-gray-50";
     }
   };
 
   const getRarityGlow = (rarity: string) => {
     switch (rarity) {
-      case 'common': return 'shadow-gray-400';
-      case 'rare': return 'shadow-blue-400';
-      case 'mythic': return 'shadow-yellow-400';
-      default: return '';
+      case "common":
+        return "shadow-gray-400";
+      case "rare":
+        return "shadow-blue-400";
+      case "mythic":
+        return "shadow-yellow-400";
+      default:
+        return "";
     }
   };
 
@@ -116,16 +135,25 @@ const Packs = () => {
       await openPack(BigInt(pack.id));
 
       // Wait for card details to load, then set revealed cards
-      let retryCount = 0;
       const maxRetries = 60; // 30 seconds maximum wait time
-      
+      retryCountRef.current = 0;
+      isCheckingCardsRef.current = true;
+
       const checkForCards = () => {
-        retryCount++;
-        console.log(`🔍 Checking for pack opening results... (attempt ${retryCount}/${maxRetries})`);
-        
-        const realCards = getRevealedCardsFromResult();
+        if (!isCheckingCardsRef.current) return; // Prevent multiple concurrent checks
+        if (timeoutIdRef.current) return; // Prevent if timeout is already active
+
+        retryCountRef.current++;
+        console.log(`🔍 Checking for pack opening results... (attempt ${retryCountRef.current}/${maxRetries})`);
+
+        const realCards = getRevealedCardsFromResult;
         if (realCards.length > 0) {
           console.log(`🎉 Pack opening successful! Found ${realCards.length} cards`);
+          isCheckingCardsRef.current = false;
+          if (timeoutIdRef.current) {
+            clearTimeout(timeoutIdRef.current);
+            timeoutIdRef.current = null;
+          }
           setRevealedCards(realCards);
 
           // Start the reveal animation for 5 cards
@@ -138,19 +166,19 @@ const Packs = () => {
             setOpeningComplete(true);
             setRevealedCards(prev => prev.map(card => ({ ...card, isRevealed: true })));
           }, 6000);
-        } else if (retryCount < maxRetries) {
+        } else if (retryCountRef.current < maxRetries) {
           // Retry in 500ms if cards not loaded yet
           console.log(`⏳ No cards found yet, retrying in 500ms...`);
-          setTimeout(checkForCards, 500);
+          timeoutIdRef.current = setTimeout(checkForCards, 500);
         } else {
           console.error("❌ Timeout waiting for pack opening results");
+          isCheckingCardsRef.current = false;
           alert("Pack opening timed out. Please check your transaction and refresh the page.");
           setSelectedPack(null);
         }
       };
 
       checkForCards();
-
     } catch (error) {
       console.error("Error opening pack:", error);
       alert("Failed to open pack");
@@ -168,7 +196,7 @@ const Packs = () => {
       {
         id: "mock-1",
         name: "Mock Dragon",
-        rarity: 'mythic',
+        rarity: "mythic",
         templateId: "1",
         attack: 85,
         defense: 75,
@@ -179,7 +207,7 @@ const Packs = () => {
       {
         id: "mock-2",
         name: "Mock Phoenix",
-        rarity: 'rare',
+        rarity: "rare",
         templateId: "2",
         attack: 70,
         defense: 65,
@@ -190,7 +218,7 @@ const Packs = () => {
       {
         id: "mock-3",
         name: "Mock Wolf",
-        rarity: 'common',
+        rarity: "common",
         templateId: "3",
         attack: 55,
         defense: 60,
@@ -201,7 +229,7 @@ const Packs = () => {
       {
         id: "mock-4",
         name: "Mock Bear",
-        rarity: 'rare',
+        rarity: "rare",
         templateId: "4",
         attack: 75,
         defense: 85,
@@ -212,7 +240,7 @@ const Packs = () => {
       {
         id: "mock-5",
         name: "Mock Eagle",
-        rarity: 'common',
+        rarity: "common",
         templateId: "5",
         attack: 60,
         defense: 50,
@@ -239,6 +267,14 @@ const Packs = () => {
   // Packs are not purchasable - they come from quest rewards and adventure drops only
 
   const handleReset = () => {
+    // Reset refs to prevent any lingering state
+    isCheckingCardsRef.current = false;
+    retryCountRef.current = 0;
+    if (timeoutIdRef.current) {
+      clearTimeout(timeoutIdRef.current);
+      timeoutIdRef.current = null;
+    }
+
     resetOpeningState();
     setSelectedPack(null);
     setRevealedCards([]);
@@ -262,34 +298,37 @@ const Packs = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-2">Packs</h1>
-        <p className="text-base-content/70">Open packs to discover 5 new Avamons - earn packs through quests and adventures!</p>
+        <p className="text-base-content/70">
+          Open packs to discover 5 new Avamons - earn packs through quests and adventures!
+        </p>
       </div>
 
       {!openingState.isOpening ? (
         <>
           {/* First Row - Pack Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            {availablePacks.map((pack) => (
+            {availablePacks.map(pack => (
               <div key={pack.id} className="bg-base-100 rounded-lg p-6 shadow-lg h-220">
                 <div className="flex flex-col h-full">
                   {/* Pack Image - square format */}
                   <div className="aspect-square w-full rounded-lg overflow-hidden">
-                    <img 
+                    <img
                       src={`https://gateway.pinata.cloud/ipfs/bafybeigumdywpusxc6kgt32yxyegrhhcdkm4pzk3payv632o4gzcmspqim/pack_${pack.type}.png`}
                       alt={`${pack.name} pack`}
                       className="w-full h-full object-cover rounded-lg"
-                      onError={(e) => {
+                      onError={e => {
                         // Fallback to colored box with icon if image fails to load
                         const img = e.target as HTMLImageElement;
                         const fallback = img.nextElementSibling as HTMLElement;
-                        img.style.display = 'none';
-                        if (fallback) fallback.style.display = 'flex';
+                        img.style.display = "none";
+                        if (fallback) fallback.style.display = "flex";
                       }}
                     />
-                    <div className={`w-full h-full rounded-lg hidden items-center justify-center ${
-                      pack.type === 'blue' ? 'bg-blue-500' :
-                      pack.type === 'green' ? 'bg-green-500' : 'bg-red-500'
-                    }`}>
+                    <div
+                      className={`w-full h-full rounded-lg hidden items-center justify-center ${
+                        pack.type === "blue" ? "bg-blue-500" : pack.type === "green" ? "bg-green-500" : "bg-red-500"
+                      }`}
+                    >
                       <ArchiveBoxIcon className="h-16 w-16 text-white" />
                     </div>
                   </div>
@@ -310,15 +349,21 @@ const Packs = () => {
                         <div className="space-y-1">
                           <div className="flex justify-between items-center">
                             <span className="text-xs font-medium text-base-content/80">Common</span>
-                            <span className="text-xs font-bold text-base-content bg-base-100 px-2 py-0.5 rounded">{pack.rarityOdds.common}%</span>
+                            <span className="text-xs font-bold text-base-content bg-base-100 px-2 py-0.5 rounded">
+                              {pack.rarityOdds.common}%
+                            </span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-xs font-medium text-base-content/80">Rare</span>
-                            <span className="text-xs font-bold text-base-content bg-base-100 px-2 py-0.5 rounded">{pack.rarityOdds.rare}%</span>
+                            <span className="text-xs font-bold text-base-content bg-base-100 px-2 py-0.5 rounded">
+                              {pack.rarityOdds.rare}%
+                            </span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-xs font-medium text-base-content/80">Mythic</span>
-                            <span className="text-xs font-bold text-base-content bg-base-100 px-2 py-0.5 rounded">{pack.rarityOdds.mythic}%</span>
+                            <span className="text-xs font-bold text-base-content bg-base-100 px-2 py-0.5 rounded">
+                              {pack.rarityOdds.mythic}%
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -407,25 +452,32 @@ const Packs = () => {
 
             {/* Pack Animation */}
             <div className="relative mb-8">
-              <div className={`w-32 h-32 mx-auto rounded-lg overflow-hidden transition-all duration-1000 ${
-                revealStep >= 1 ? 'animate-bounce scale-110' : ''
-              } ${revealStep >= 3 ? 'animate-pulse' : ''} ${revealStep >= 5 ? 'opacity-50' : ''}`}>
+              <div
+                className={`w-32 h-32 mx-auto rounded-lg overflow-hidden transition-all duration-1000 ${
+                  revealStep >= 1 ? "animate-bounce scale-110" : ""
+                } ${revealStep >= 3 ? "animate-pulse" : ""} ${revealStep >= 5 ? "opacity-50" : ""}`}
+              >
                 <img
                   src={`https://gateway.pinata.cloud/ipfs/bafybeigumdywpusxc6kgt32yxyegrhhcdkm4pzk3payv632o4gzcmspqim/pack_${selectedPack?.type}.png`}
                   alt={`${selectedPack?.name} pack opening`}
                   className="w-full h-full object-cover rounded-lg"
-                  onError={(e) => {
+                  onError={e => {
                     // Fallback to colored box with icon if image fails to load
                     const img = e.target as HTMLImageElement;
                     const fallback = img.nextElementSibling as HTMLElement;
-                    img.style.display = 'none';
-                    if (fallback) fallback.style.display = 'flex';
+                    img.style.display = "none";
+                    if (fallback) fallback.style.display = "flex";
                   }}
                 />
-                <div className={`w-full h-full rounded-lg hidden items-center justify-center ${
-                  selectedPack?.type === 'blue' ? 'bg-blue-500' :
-                  selectedPack?.type === 'green' ? 'bg-green-500' : 'bg-red-500'
-                }`}>
+                <div
+                  className={`w-full h-full rounded-lg hidden items-center justify-center ${
+                    selectedPack?.type === "blue"
+                      ? "bg-blue-500"
+                      : selectedPack?.type === "green"
+                        ? "bg-green-500"
+                        : "bg-red-500"
+                  }`}
+                >
                   <ArchiveBoxIcon className="h-16 w-16 text-white" />
                 </div>
               </div>
@@ -438,9 +490,18 @@ const Packs = () => {
                     {revealStep >= 2 && (
                       <>
                         <SparklesIcon className="absolute -top-2 -left-2 h-4 w-4 text-yellow-300 animate-bounce" />
-                        <SparklesIcon className="absolute -top-2 -right-2 h-4 w-4 text-yellow-300 animate-bounce" style={{ animationDelay: '0.2s' }} />
-                        <SparklesIcon className="absolute -bottom-2 -left-2 h-4 w-4 text-yellow-300 animate-bounce" style={{ animationDelay: '0.4s' }} />
-                        <SparklesIcon className="absolute -bottom-2 -right-2 h-4 w-4 text-yellow-300 animate-bounce" style={{ animationDelay: '0.6s' }} />
+                        <SparklesIcon
+                          className="absolute -top-2 -right-2 h-4 w-4 text-yellow-300 animate-bounce"
+                          style={{ animationDelay: "0.2s" }}
+                        />
+                        <SparklesIcon
+                          className="absolute -bottom-2 -left-2 h-4 w-4 text-yellow-300 animate-bounce"
+                          style={{ animationDelay: "0.4s" }}
+                        />
+                        <SparklesIcon
+                          className="absolute -bottom-2 -right-2 h-4 w-4 text-yellow-300 animate-bounce"
+                          style={{ animationDelay: "0.6s" }}
+                        />
                       </>
                     )}
                     {revealStep >= 4 && (
@@ -456,8 +517,14 @@ const Packs = () => {
               <div className="mt-4 text-center">
                 <div className="text-sm text-base-content/70 mb-2">
                   {revealStep === 0 && openingState.isOpening && "🔗 Processing transaction..."}
-                  {revealStep === 0 && !openingState.isOpening && revealedCards.length === 0 && "⏳ Waiting for blockchain confirmation..."}
-                  {revealStep === 0 && !openingState.isOpening && revealedCards.length > 0 && "🎉 Cards received! Preparing reveal..."}
+                  {revealStep === 0 &&
+                    !openingState.isOpening &&
+                    revealedCards.length === 0 &&
+                    "⏳ Waiting for blockchain confirmation..."}
+                  {revealStep === 0 &&
+                    !openingState.isOpening &&
+                    revealedCards.length > 0 &&
+                    "🎉 Cards received! Preparing reveal..."}
                   {revealStep === 1 && "📦 Opening pack..."}
                   {revealStep === 2 && "✨ Revealing cards..."}
                   {revealStep === 3 && "🎯 Almost there..."}
@@ -465,16 +532,16 @@ const Packs = () => {
                   {revealStep === 5 && "🎊 Complete!"}
                 </div>
                 <div className="flex justify-center space-x-1">
-                  {[1, 2, 3, 4, 5].map((step) => (
+                  {[1, 2, 3, 4, 5].map(step => (
                     <div
                       key={step}
                       className={`w-2 h-2 rounded-full transition-colors duration-500 ${
-                        revealStep >= step ? 'bg-yellow-400' : 'bg-base-300'
+                        revealStep >= step ? "bg-yellow-400" : "bg-base-300"
                       }`}
                     />
                   ))}
                 </div>
-                
+
                 {/* Show additional info while waiting */}
                 {revealStep === 0 && !openingState.isOpening && revealedCards.length === 0 && (
                   <div className="mt-3 text-xs text-base-content/50">
@@ -492,12 +559,12 @@ const Packs = () => {
               <div
                 key={card.id}
                 className={`relative p-4 rounded-lg border-2 transition-all duration-500 ${
-                  card.isRevealed ? getRarityColor(card.rarity) : 'border-base-300 bg-base-200'
-                } ${card.isRevealed ? `shadow-lg ${getRarityGlow(card.rarity)}` : ''}`}
+                  card.isRevealed ? getRarityColor(card.rarity) : "border-base-300 bg-base-200"
+                } ${card.isRevealed ? `shadow-lg ${getRarityGlow(card.rarity)}` : ""}`}
                 style={{
                   animationDelay: `${index * 0.5}s`,
-                  transform: card.isRevealed ? 'scale(1)' : 'scale(0.95)',
-                  opacity: card.isRevealed ? 1 : 0.7
+                  transform: card.isRevealed ? "scale(1)" : "scale(0.95)",
+                  opacity: card.isRevealed ? 1 : 0.7,
                 }}
               >
                 {!card.isRevealed ? (
@@ -511,20 +578,19 @@ const Packs = () => {
                         {isMockOpening ? (
                           // Show placeholder emoji for mock cards
                           <span className="text-3xl">
-                            {card.rarity === 'mythic' ? '🐉' :
-                             card.rarity === 'rare' ? '🦅' : '🐺'}
+                            {card.rarity === "mythic" ? "🐉" : card.rarity === "rare" ? "🦅" : "🐺"}
                           </span>
                         ) : (
                           <img
                             src={`https://gateway.pinata.cloud/ipfs/bafybeigumdywpusxc6kgt32yxyegrhhcdkm4pzk3payv632o4gzcmspqim/${card.templateId}.png`}
                             alt={card.name}
                             className="w-full h-full object-cover rounded-lg"
-                            onError={(e) => {
+                            onError={e => {
                               // Fallback to emoji if image fails to load
                               const img = e.target as HTMLImageElement;
                               const fallback = img.nextElementSibling as HTMLElement;
-                              img.style.display = 'none';
-                              if (fallback) fallback.style.display = 'block';
+                              img.style.display = "none";
+                              if (fallback) fallback.style.display = "block";
                             }}
                           />
                         )}
@@ -532,9 +598,7 @@ const Packs = () => {
                       </div>
                       <h3 className="font-bold text-sm">{card.name}</h3>
                       <p className="text-xs text-base-content/70 capitalize">{card.rarity}</p>
-                      {isMockOpening && (
-                        <p className="text-xs text-orange-600 font-medium">Mock Data</p>
-                      )}
+                      {isMockOpening && <p className="text-xs text-orange-600 font-medium">Mock Data</p>}
                     </div>
                     <div className="grid grid-cols-2 gap-1 text-xs">
                       <div>⚔️ {card.attack}</div>
@@ -546,7 +610,7 @@ const Packs = () => {
                 )}
 
                 {/* Rarity glow effect */}
-                {card.isRevealed && card.rarity === 'mythic' && (
+                {card.isRevealed && card.rarity === "mythic" && (
                   <div className="absolute inset-0 rounded-lg border-2 border-yellow-400 animate-pulse pointer-events-none"></div>
                 )}
               </div>
@@ -556,35 +620,30 @@ const Packs = () => {
           {/* Completion Actions */}
           {openingComplete && (
             <div className="text-center">
-              <div className={`px-4 py-3 rounded-lg mb-4 inline-block ${
-                isMockOpening
-                  ? 'bg-blue-100 border border-blue-400 text-blue-700'
-                  : 'bg-green-100 border border-green-400 text-green-700'
-              }`}>
+              <div
+                className={`px-4 py-3 rounded-lg mb-4 inline-block ${
+                  isMockOpening
+                    ? "bg-blue-100 border border-blue-400 text-blue-700"
+                    : "bg-green-100 border border-green-400 text-green-700"
+                }`}
+              >
                 <div className="flex items-center">
                   <CheckCircleIcon className="h-5 w-5 mr-2" />
                   <span>
                     {isMockOpening
                       ? "Mock animation completed! This was just a test."
-                      : "Packs opened successfully! Cards added to your collection."
-                    }
+                      : "Packs opened successfully! Cards added to your collection."}
                   </span>
                 </div>
               </div>
 
               <div className="flex gap-4 justify-center">
-                <button
-                  className="btn btn-primary"
-                  onClick={handleReset}
-                >
+                <button className="btn btn-primary" onClick={handleReset}>
                   <ArrowPathIcon className="h-4 w-4 mr-2" />
                   {isMockOpening ? "Test Another Animation" : "Open Another Pack"}
                 </button>
                 {!isMockOpening && (
-                  <button
-                    className="btn btn-outline"
-                    onClick={() => window.location.href = '/cards'}
-                  >
+                  <button className="btn btn-outline" onClick={() => (window.location.href = "/cards")}>
                     View Collection
                   </button>
                 )}

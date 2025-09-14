@@ -1,8 +1,8 @@
-import { useAccount } from "wagmi";
-import { useScaffoldWriteContract } from "./useScaffoldWriteContract";
-import { useScaffoldEventHistory } from "./useScaffoldEventHistory";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useScaffoldContract } from "./useScaffoldContract";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useScaffoldEventHistory } from "./useScaffoldEventHistory";
+import { useScaffoldWriteContract } from "./useScaffoldWriteContract";
+import { useAccount } from "wagmi";
 
 export interface PackOpeningResult {
   packId: bigint;
@@ -50,11 +50,14 @@ export function usePackOpening() {
   const memoizedPackEvents = useMemo(() => {
     if (packOpenedEvents && packOpenedEvents.length > 0) {
       console.log(`📦 PackOpened events loaded: ${packOpenedEvents.length} total events`);
-      console.log("📦 Latest pack events:", packOpenedEvents.slice(-3).map(e => ({
-        user: e.args?.user,
-        packId: e.args?.packId?.toString(),
-        cardIds: e.args?.cardIds?.map(id => id.toString())
-      })));
+      console.log(
+        "📦 Latest pack events:",
+        packOpenedEvents.slice(-3).map(e => ({
+          user: e.args?.user,
+          packId: e.args?.packId?.toString(),
+          cardIds: e.args?.cardIds?.map(id => id.toString()),
+        })),
+      );
     } else {
       console.log("📦 No PackOpened events loaded yet");
     }
@@ -65,15 +68,15 @@ export function usePackOpening() {
   useEffect(() => {
     if (memoizedPackEvents && memoizedPackEvents.length > 0 && address) {
       // Look for the most recent pack opening event for this user
-      const userEvents = memoizedPackEvents.filter(event => 
-        event.args?.user?.toLowerCase() === address.toLowerCase()
-      );
-      
+      const userEvents = memoizedPackEvents.filter(event => event.args?.user?.toLowerCase() === address.toLowerCase());
+
       if (userEvents.length > 0) {
         const latestEvent = userEvents[userEvents.length - 1];
         const cardIds = latestEvent.args?.cardIds || [];
-        
-        console.log(`🎉 Found pack opening event for user: packId=${latestEvent.args?.packId}, cards=${cardIds.length}`);
+
+        console.log(
+          `🎉 Found pack opening event for user: packId=${latestEvent.args?.packId}, cards=${cardIds.length}`,
+        );
 
         setOpeningState(prev => ({
           ...prev,
@@ -131,7 +134,6 @@ export function usePackOpening() {
       });
 
       // The result will be handled by the event listener above
-
     } catch (error) {
       console.error("Error opening pack:", error);
       setOpeningState(prev => ({
@@ -177,7 +179,7 @@ export function useCardDetails(tokenIds: readonly bigint[]) {
 
   // Create a stable string representation of tokenIds for dependency comparison
   const tokenIdsString = useMemo(() => {
-    return tokenIds.map(id => id.toString()).join(',');
+    return tokenIds.map(id => id.toString()).join(",");
   }, [tokenIds]);
 
   // Memoize the fetchCardDetails function to prevent infinite re-renders
@@ -194,7 +196,10 @@ export function useCardDetails(tokenIds: readonly bigint[]) {
       return;
     }
 
-    console.log(`🔍 Fetching card details for ${tokenIds.length} cards:`, tokenIds.map(id => id.toString()));
+    console.log(
+      `🔍 Fetching card details for ${tokenIds.length} cards:`,
+      tokenIds.map(id => id.toString()),
+    );
     setIsLoading(true);
     setError(null);
 
@@ -205,19 +210,19 @@ export function useCardDetails(tokenIds: readonly bigint[]) {
       for (const tokenId of tokenIds) {
         try {
           console.log(`📋 Fetching data for card ${tokenId}...`);
-          
+
           // Get real card stats from the contract
           const cardStats = await avamonCardsContract.read.cardStats([tokenId]);
           console.log(`📊 Card ${tokenId} stats:`, {
             templateId: cardStats[0].toString(),
             attack: cardStats[1].toString(),
-            rarity: cardStats[5].toString()
+            rarity: cardStats[5].toString(),
           });
-          
+
           // Get template information from AvamonCore
           const templateId = cardStats[0]; // templateId from cardStats
           const templateData = await avamonCoreContract.read.getCardTemplate([templateId]);
-          
+
           const cardDetail = {
             tokenId,
             templateId: templateId,
@@ -233,7 +238,7 @@ export function useCardDetails(tokenIds: readonly bigint[]) {
           details.push(cardDetail);
         } catch (cardError) {
           console.error(`❌ Error fetching data for card ${tokenId}:`, cardError);
-          
+
           // Fallback for this specific card if data fetch fails
           const fallbackDetail = {
             tokenId,
@@ -256,7 +261,7 @@ export function useCardDetails(tokenIds: readonly bigint[]) {
       setError(err instanceof Error ? err.message : "Failed to fetch card details");
 
       // Fallback to basic data for all cards
-      const fallbackDetails = tokenIds.map((tokenId) => ({
+      const fallbackDetails = tokenIds.map(tokenId => ({
         tokenId,
         templateId: 1n,
         name: `Avamon #${tokenId}`,
@@ -272,10 +277,12 @@ export function useCardDetails(tokenIds: readonly bigint[]) {
     }
   }, [tokenIdsString, avamonCardsContract, avamonCoreContract]); // Include contracts in dependencies
 
-  // Get card details when tokenIds change
+  // Get card details when tokenIds change (only when we have new tokenIds)
   useEffect(() => {
-    fetchCardDetails();
-  }, [fetchCardDetails]);
+    if (tokenIds.length > 0 && !isLoading) {
+      fetchCardDetails();
+    }
+  }, [tokenIdsString]); // Only depend on tokenIdsString to prevent infinite loops
 
   return {
     cardDetails,
